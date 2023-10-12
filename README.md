@@ -3,6 +3,14 @@
 ## 📝 Descripción
 API Rest de Funkos programada en Java con Gradle y base de datos en H2 (modificable desde el archivo properties). Se realizan tests con JUnit y Mockito, además de varias consultas en el Main de la aplicación para probar tanto los casos correctos como los incorrectos del programa.
 
+## 💡 Instrucciones de uso
+- ⚠ **.env:** Este fichero se deberá de crear en la carpeta raíz con los siguientes datos:
+  DATABASE_USER=usuario
+  DATABASE_PASSWORD=contraseña
+  Deberás de modificar el usuario y la contraseña que quieres que tenga la base de datos. La razón por la que el .env no se agrega al repositorio es por motivos de seguridad. Estos datos están aislados del database.properties.
+
+- **database.properties:** Este fichero es el que se deberá modificar si se quiere cambiar la URL, el driver, el nombre de la base de datos o si se quiere forzar el reinicio de la tabla Funko en el inicio del programa (eliminará y volverá a crear la tabla de Funko).
+
 ## ⚙ Herramientas
 - Java 11.
 - Gradle.
