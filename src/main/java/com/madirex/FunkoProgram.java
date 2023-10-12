@@ -386,9 +386,8 @@ public class FunkoProgram {
         AtomicBoolean failed = new AtomicBoolean(false);
         CsvManager csvManager = CsvManager.getInstance();
         try {
-            try {
-                csvManager.fileToFunkoList(path)
-                        .thenAcceptAsync(optionalFunkoList -> optionalFunkoList.ifPresent(e -> {
+            csvManager.fileToFunkoList(path)
+                    .thenAcceptAsync(optionalFunkoList -> optionalFunkoList.ifPresent(e -> {
                         e.forEach(funko -> {
                             try {
                                 controller.save(funko);
@@ -409,14 +408,11 @@ public class FunkoProgram {
                         }
                     })).exceptionally(e -> {
                         logger.error("Error al leer el CSV");
-                            return null;
-                        });
-                logger.error("Error al leer el CSV");
-            } catch (ReadCSVFailException e) {
-                throw new RuntimeException(e);
-            }
-        } catch (RuntimeException e) {
-            throw new RuntimeException(e);
+                        return null;
+                    });
+            logger.error("Error al leer el CSV");
+        } catch (ReadCSVFailException | RuntimeException e) {
+            logger.error("Error al leer el CSV");
         }
     }
 }
