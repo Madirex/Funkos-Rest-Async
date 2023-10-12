@@ -63,7 +63,6 @@ public class FunkoProgram {
         callAllServiceExceptionMethods();
         callAllServiceMethods();
         databaseQueries();
-        DatabaseManager.getInstance().close();
     }
 
     /**
@@ -118,10 +117,22 @@ public class FunkoProgram {
             printDelete("MadiFunkoModified");
             logger.info("🟢 Copia de seguridad:");
             doBackupAndPrint("data");
+            logger.info("🟢 Cargando copia de seguridad:");
+            loadBackupAndPrint("data");
         } catch (SQLException e) {
             String strError = "Fallo SQL: " + e;
             logger.error(strError);
         }
+    }
+
+    /**
+     * Carga una copia de seguridad y la imprime
+     *
+     * @param rootFolderName Nombre de la carpeta raíz
+     */
+    private void loadBackupAndPrint(String rootFolderName) {
+        controller.importData(System.getProperty("user.dir") + File.separator + rootFolderName,
+                "backup.json").thenAccept(e -> e.forEach(f -> logger.info(f.toString())));
     }
 
     /**
@@ -302,12 +313,15 @@ public class FunkoProgram {
     private void doBackupAndPrint(String rootFolderName) {
         logger.info("\nBackup:");
         try {
-            controller.backup(System.getProperty("user.dir") + File.separator + rootFolderName, "backup.json");
+            controller.exportData(System.getProperty("user.dir") + File.separator + rootFolderName, "backup.json");
         } catch (SQLException e) {
             String strError = "Fallo SQL: " + e;
             logger.error(strError);
         } catch (IOException e) {
             String strError = "Error de Input/Output: " + e;
+            logger.error(strError);
+        } catch (FunkoNotFoundException e) {
+            String strError = "Funko no encontrado: " + e;
             logger.error(strError);
         }
     }

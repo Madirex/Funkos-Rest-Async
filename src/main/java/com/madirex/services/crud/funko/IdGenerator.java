@@ -31,7 +31,7 @@ public class IdGenerator {
     }
 
     /**
-     * Genera un id
+     * Genera un ID
      * Aumenta a 1 el contador (counter) y retorna el valor actual
      *
      * @return Valor del contador actual

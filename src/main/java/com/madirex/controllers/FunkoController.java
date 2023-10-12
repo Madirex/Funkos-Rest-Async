@@ -5,7 +5,7 @@ import com.madirex.exceptions.FunkoNotRemovedException;
 import com.madirex.exceptions.FunkoNotSavedException;
 import com.madirex.exceptions.FunkoNotValidException;
 import com.madirex.models.Funko;
-import com.madirex.services.crud.funko.FunkoService;
+import com.madirex.services.crud.funko.FunkoServiceImpl;
 import com.madirex.validators.FunkoValidator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -14,6 +14,7 @@ import java.io.IOException;
 import java.sql.SQLException;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 
 /**
  * Controlador de Funko
@@ -21,14 +22,14 @@ import java.util.Optional;
 public class FunkoController implements BaseController<Funko> {
     private final Logger logger = LoggerFactory.getLogger(FunkoController.class);
 
-    private final FunkoService funkoService;
+    private final FunkoServiceImpl funkoService;
 
     /**
      * Constructor
      *
      * @param funkoService servicio de Funko
      */
-    public FunkoController(FunkoService funkoService) {
+    public FunkoController(FunkoServiceImpl funkoService) {
         this.funkoService = funkoService;
     }
 
@@ -128,14 +129,26 @@ public class FunkoController implements BaseController<Funko> {
     }
 
     /**
-     * Realiza un backup de la base de datos
+     * Exporta los datos de la base de datos a un archivo JSON
      *
      * @param url      url de la base de datos
      * @param fileName nombre del archivo
      * @throws SQLException si hay un error en la base de datos
      * @throws IOException  si hay un error en el archivo
      */
-    public void backup(String url, String fileName) throws SQLException, IOException {
-        funkoService.backup(url, fileName);
+    public void exportData(String url, String fileName) throws SQLException, IOException, FunkoNotFoundException {
+        funkoService.exportData(url, fileName, findAll());
+    }
+
+    /**
+     * Importa los datos de un archivo JSON a la base de datos
+     *
+     * @param url      url de la base de datos
+     * @param fileName nombre del archivo
+     * @throws SQLException si hay un error en la base de datos
+     * @throws IOException  si hay un error en el archivo
+     */
+    public CompletableFuture<List<Funko>> importData(String url, String fileName) {
+        return funkoService.importData(url, fileName);
     }
 }

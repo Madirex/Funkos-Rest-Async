@@ -1,30 +1,25 @@
 package com.madirex.services.crud.funko;
 
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
 import com.madirex.exceptions.*;
 import com.madirex.models.Funko;
 import com.madirex.repositories.funko.FunkoRepository;
 import com.madirex.services.io.BackupService;
-import com.madirex.utils.LocalDateAdapter;
 import lombok.Getter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.File;
 import java.io.IOException;
-import java.nio.file.Files;
 import java.sql.SQLException;
-import java.time.LocalDate;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 
 /**
  * Implementación de la interfaz FunkoService
  */
-public class FunkoServiceImpl implements FunkoService {
+public class FunkoServiceImpl implements FunkoService<List<Funko>> {
     private static final int CACHE_SIZE = 25;
     private static FunkoServiceImpl funkoServiceImplInstance;
 
@@ -98,14 +93,25 @@ public class FunkoServiceImpl implements FunkoService {
      *
      * @param path     Ruta del directorio donde se guardará el backup
      * @param fileName Nombre del archivo del backup
+     * @param data     Datos a guardar
+     * @throws SQLException      Si hay un error en la base de datos
+     * @throws DirectoryException El directorio no existe
      */
     @Override
-    public void backup(String path, String fileName) throws SQLException, IOException {
-        try {
-            backupService.backup(path, fileName, findAll());
-        } catch (DirectoryException e) {
-            logger.error("El directorio del backup es un directorio no válido: " + e.getMessage());
-        }
+    public void exportData(String path, String fileName, List<Funko> data) throws SQLException {
+        backupService.exportData(path, fileName, findAll());
+    }
+
+    /**
+     * Importa los datos de un archivo JSON
+     *
+     * @param path     Ruta del directorio donde se guardará el backup
+     * @param fileName Nombre del archivo del backup
+     * @return Datos importados
+     */
+    @Override
+    public CompletableFuture<List<Funko>> importData(String path, String fileName) {
+        return backupService.importData(path, fileName, List.class);
     }
 
     /**

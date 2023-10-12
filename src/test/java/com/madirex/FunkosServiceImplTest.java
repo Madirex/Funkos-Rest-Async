@@ -92,7 +92,7 @@ class FunkosServiceImplTest {
         String path = "data";
         String fileName = "backup.json";
         service = new FunkoServiceImpl(repository);
-        assertDoesNotThrow(() -> service.backup(path, fileName));
+        assertDoesNotThrow(() -> service.exportData(path, fileName, service.findAll()));
     }
 
     /**
@@ -103,7 +103,7 @@ class FunkosServiceImplTest {
         String path = "ruta/inexistente";
         String fileName = "backup.json";
         service = new FunkoServiceImpl(repository);
-        assertDoesNotThrow(() -> service.backup(path, fileName));
+        assertDoesNotThrow(() -> service.exportData(path, fileName, service.findAll()));
     }
 
     /**
