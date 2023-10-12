@@ -378,7 +378,7 @@ public class FunkoProgram {
     }
 
     /**
-     * Lee un archivo CSV y lo inserta en la base de datos
+     * Lee un archivo CSV y lo inserta en la base de datos de manera asíncrona
      *
      * @param path Ruta del archivo CSV
      */
@@ -386,8 +386,9 @@ public class FunkoProgram {
         AtomicBoolean failed = new AtomicBoolean(false);
         CsvManager csvManager = CsvManager.getInstance();
         try {
-            csvManager.fileToFunkoList(path)
-                    .ifPresent(e -> {
+            try {
+                csvManager.fileToFunkoList(path)
+                        .thenAcceptAsync(optionalFunkoList -> optionalFunkoList.ifPresent(e -> {
                         e.forEach(funko -> {
                             try {
                                 controller.save(funko);
@@ -406,9 +407,16 @@ public class FunkoProgram {
                         if (failed.get()) {
                             logger.error("Error al insertar los datos en la base de datos");
                         }
-                    });
-        } catch (ReadCSVFailException e) {
-            logger.error("Error al leer el CSV");
+                    })).exceptionally(e -> {
+                        logger.error("Error al leer el CSV");
+                            return null;
+                        });
+                logger.error("Error al leer el CSV");
+            } catch (ReadCSVFailException e) {
+                throw new RuntimeException(e);
+            }
+        } catch (RuntimeException e) {
+            throw new RuntimeException(e);
         }
     }
 }

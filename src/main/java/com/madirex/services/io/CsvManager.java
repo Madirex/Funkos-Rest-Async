@@ -16,6 +16,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 
 /**
  * Clase CsvManager que administra la exportación e importación de datos CSV
@@ -48,28 +49,33 @@ public class CsvManager {
      * Lee un archivo CSV y lo convierte en un Optional de la lista de Funko
      *
      * @param path Ruta del archivo CSV
-     * @return Optional de la lista de Funko
+     * @return CompletableFuture de Optional de la lista de Funko
      * @throws ReadCSVFailException Excepción al leer el archivo CSV
      */
-    public Optional<List<Funko>> fileToFunkoList(String path) throws ReadCSVFailException {
+    public CompletableFuture<Optional<List<Funko>>> fileToFunkoList(String path) throws ReadCSVFailException {
+        CompletableFuture<Optional<List<Funko>>> future = new CompletableFuture<>();
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
-        try (BufferedReader reader = new BufferedReader(new FileReader(path))) {
-            return Optional.of(reader.lines()
-                    .map(line -> line.split(","))
-                    .skip(1)
-                    .map(values -> Funko.builder()
-                            .cod(UUID.fromString(values[0].chars().limit(36).collect(StringBuilder::new, StringBuilder::appendCodePoint, StringBuilder::append)
-                                    .toString()))
-                            .name(values[1])
-                            .model(Model.valueOf(values[2]))
-                            .price(Double.parseDouble(values[3]))
-                            .releaseDate(LocalDate.parse(values[4], formatter))
-                            .build()
-                    )
-                    .toList());
-        } catch (IOException e) {
-            throw new ReadCSVFailException(e.getMessage());
-        }
+        CompletableFuture.runAsync(() -> {
+                    try (BufferedReader reader = new BufferedReader(new FileReader(path))) {
+                        future.complete(Optional.of(reader.lines()
+                                .map(line -> line.split(","))
+                                .skip(1)
+                                .map(values -> Funko.builder()
+                                        .cod(UUID.fromString(values[0].chars().limit(36).collect(StringBuilder::new, StringBuilder::appendCodePoint, StringBuilder::append)
+                                                .toString()))
+                                        .name(values[1])
+                                        .model(Model.valueOf(values[2]))
+                                        .price(Double.parseDouble(values[3]))
+                                        .releaseDate(LocalDate.parse(values[4], formatter))
+                                        .build()
+                                )
+                                .toList()));
+                    } catch (IOException e) {
+                        future.completeExceptionally(new ReadCSVFailException(e.getMessage()));
+                    }
+                }
+        );
+        return future;
     }
 
     /**
