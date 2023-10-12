@@ -38,7 +38,7 @@ public class CsvManager {
      *
      * @return Instancia de CsvManager
      */
-    public static CsvManager getInstance() {
+    public static synchronized CsvManager getInstance() {
         if (csvManagerInstance == null) {
             csvManagerInstance = new CsvManager();
         }

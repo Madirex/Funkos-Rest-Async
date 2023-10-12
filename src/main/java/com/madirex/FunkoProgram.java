@@ -1,7 +1,10 @@
 package com.madirex;
 
 import com.madirex.controllers.FunkoController;
-import com.madirex.exceptions.*;
+import com.madirex.exceptions.FunkoNotFoundException;
+import com.madirex.exceptions.FunkoNotSavedException;
+import com.madirex.exceptions.FunkoNotValidException;
+import com.madirex.exceptions.ReadCSVFailException;
 import com.madirex.models.Funko;
 import com.madirex.models.Model;
 import com.madirex.repositories.funko.FunkoRepositoryImpl;
@@ -17,9 +20,11 @@ import java.io.File;
 import java.io.IOException;
 import java.sql.SQLException;
 import java.time.LocalDate;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 
@@ -47,7 +52,7 @@ public class FunkoProgram {
      *
      * @return Instancia de la clase FunkoProgram
      */
-    public static FunkoProgram getInstance() {
+    public static synchronized FunkoProgram getInstance() {
         if (funkoProgramInstance == null) {
             funkoProgramInstance = new FunkoProgram();
         }
@@ -59,376 +64,524 @@ public class FunkoProgram {
      */
     public void init() {
         logger.info("Programa de Funkos iniciado.");
-        loadFunkosFileAndInsertToDatabase("data" + File.separator + "funkos.csv");
-        callAllServiceExceptionMethods();
-        callAllServiceMethods();
-        databaseQueries();
+        CompletableFuture<Void> loadFuture = loadFunkosFileAndInsertToDatabase("data" + File.separator + "funkos.csv");
+        loadFuture.join();
+        CompletableFuture<Void> serviceExceptionFuture = callAllServiceExceptionMethods();
+        CompletableFuture<Void> serviceFuture = callAllServiceMethods();
+        CompletableFuture<Void> queriesFuture = databaseQueries();
+        CompletableFuture<Void> combinedFuture = CompletableFuture
+                .allOf(loadFuture, serviceExceptionFuture, serviceFuture, queriesFuture);
+        combinedFuture.join();
     }
 
     /**
      * Lanzar excepciones de los métodos service
+     *
+     * @return CompletableFuture
      */
-    private void callAllServiceExceptionMethods() {
+    private CompletableFuture<Void> callAllServiceExceptionMethods() {
         try {
             logger.info("🔴 Probando casos incorrectos 🔴");
-            logger.info("🔴 Probando caso incorrecto de FindById:");
-            printFindById("569689dd-b76b-465b-aa32-a6c46acd38fd");
-            logger.info("🔴 Probando caso incorrecto de FindByName:");
-            printFindByName("NoExiste");
-            logger.info("🔴 Probando caso incorrecto de Save:");
-            printSave(Funko.builder()
+            var s1 = printFindById("569689dd-b76b-465b-aa32-a6c46acd38fd", false);
+            var s2 = printFindByName("NoExiste", false);
+            var s3 = printSave(Funko.builder()
                     .name("MadiFunko2")
                     .model(Model.OTROS)
                     .price(-42)
                     .releaseDate(LocalDate.now())
-                    .build());
-            logger.info("🔴 Probando caso incorrecto de Update:");
-            printUpdate("One Piece Luffy", "");
-            logger.info("🔴 Probando caso incorrecto de Delete:");
-            printDelete("NoExiste");
+                    .build(), false);
+            var s4 = printUpdate("One Piece Luffy", "", false);
+            var s5 = printDelete("NoExiste", false);
+            return CompletableFuture.allOf(s1, s2, s3, s4, s5);
         } catch (SQLException e) {
             String strError = "Fallo SQL: " + e;
             logger.error(strError);
         }
+        return CompletableFuture.completedFuture(null);
     }
 
     /**
      * Llama a todos los métodos de la clase FunkoService
+     *
+     * @return CompletableFuture
      */
-    private void callAllServiceMethods() {
+    private CompletableFuture<Void> callAllServiceMethods() {
         try {
             logger.info("🟢 Probando casos correctos 🟢");
-            logger.info("🟢 Probando caso correcto de FindAll:");
-            printFindAll();
-            logger.info("🟢 Probando caso correcto de FindById:");
-            printFindById("3b6c6f58-7c6b-434b-82ab-01b2d6e4434a");
-            logger.info("🟢 Probando caso correcto de FindByName:");
-            printFindByName("Doctor Who Tardis");
-            logger.info("🟢 Probando caso correcto de Save:");
-            printSave(Funko.builder()
+            var s1 = printFindAll();
+            var s2 = printFindById("3b6c6f58-7c6b-434b-82ab-01b2d6e4434a", true);
+            var s3 = printFindByName("Doctor Who Tardis", true);
+            var s4 = printSave(Funko.builder()
                     .name("MadiFunko")
                     .model(Model.OTROS)
                     .price(42)
                     .releaseDate(LocalDate.now())
-                    .build());
-            logger.info("🟢 Probando caso correcto de Update:");
-            printUpdate("MadiFunko", "MadiFunkoModified");
-            logger.info("🟢 Probando caso correcto de Delete:");
-            printDelete("MadiFunkoModified");
-            logger.info("🟢 Copia de seguridad:");
-            doBackupAndPrint("data");
-            logger.info("🟢 Cargando copia de seguridad:");
-            loadBackupAndPrint("data");
+                    .build(), true);
+            s4.join();
+            var s5 = printUpdate("MadiFunko", "MadiFunkoModified", true);
+            s5.join();
+            var s6 = printDelete("MadiFunkoModified", true);
+            var s7 = doBackupAndPrint("data");
+            s7.join();
+            var s8 = loadBackupAndPrint("data");
+            return CompletableFuture.allOf(s1, s2, s3, s4, s5, s6, s7, s8);
         } catch (SQLException e) {
             String strError = "Fallo SQL: " + e;
             logger.error(strError);
         }
+        return CompletableFuture.completedFuture(null);
     }
 
     /**
      * Carga una copia de seguridad y la imprime
      *
      * @param rootFolderName Nombre de la carpeta raíz
+     * @return CompletableFuture
      */
-    private void loadBackupAndPrint(String rootFolderName) {
-        controller.importData(System.getProperty("user.dir") + File.separator + rootFolderName,
-                "backup.json").thenAccept(e -> e.forEach(f -> logger.info(f.toString())));
+    private CompletableFuture<Void> loadBackupAndPrint(String rootFolderName) {
+        return controller.importData(System.getProperty("user.dir") + File.separator + rootFolderName,
+                "backup.json").thenAccept(e -> {
+            logger.info("🟢 Copia de seguridad...");
+            e.forEach(f -> logger.info(f.toString()));
+        });
     }
 
     /**
      * Consultas a la base de datos
+     *
+     * @return CompletableFuture
      */
-    private void databaseQueries() {
-        logger.info("🔵 Funko más caro:");
-        printExpensiveFunko();
-        logger.info("🔵 Media de precio de Funkos:");
-        printAvgPriceOfFunkos();
-        logger.info("🔵 Funkos agrupados por modelos:");
-        printFunkosGroupedByModels();
-        logger.info("🔵 Número de Funkos por modelos:");
-        printNumberOfFunkosByModels();
-        logger.info("🔵 Funkos que han sido lanzados en 2023:");
-        printFunkosReleasedIn(2023);
-        logger.info("🔵 Número de Funkos de Stitch:");
-        printNumberOfFunkosOfName("Stitch");
-        logger.info("🔵 Listado de Funkos de Stitch:");
-        printListOfFunkosOfName("Stitch");
+    private CompletableFuture<Void> databaseQueries() {
+        var q1 = printExpensiveFunko();
+        var q2 = printAvgPriceOfFunkos();
+        var q3 = printFunkosGroupedByModels();
+        var q4 = printNumberOfFunkosByModels();
+        var q5 = printFunkosReleasedIn(2023);
+        var q6 = printNumberOfFunkosOfName("Stitch");
+        var q7 = printListOfFunkosOfName("Stitch");
+        return CompletableFuture.allOf(q1, q2, q3, q4, q5, q6, q7);
     }
 
     /**
      * Imprime una lista de Funkos que contengan el nombre pasado por parámetro
      *
      * @param name Nombre del Funko
+     * @return CompletableFuture
      */
-    private void printListOfFunkosOfName(String name) {
+    private CompletableFuture<Object> printListOfFunkosOfName(String name) {
         try {
-            controller.findAll().stream().filter(e -> e.getName().startsWith(name))
-                    .forEach(e -> logger.info(e.toString()));
-        } catch (SQLException e) {
-            throw new RuntimeException(e);
-        } catch (FunkoNotFoundException e) {
-            throw new RuntimeException(e);
+            return controller.findAll()
+                    .thenApplyAsync(funkos -> {
+                        logger.info("🔵 Listado de Funkos de Stitch...");
+                        funkos.stream()
+                                .filter(f -> f.getName().startsWith(name))
+                                .forEach(e -> logger.info(e.toString()));
+                        return null;
+                    });
+        } catch (SQLException | FunkoNotFoundException e) {
+            String str = "Funkos no encontrados: " + e;
+            logger.error(str);
         }
+        return CompletableFuture.completedFuture(null);
     }
 
     /**
      * Imprime el número de los Funkos dado un nombre
      *
      * @param name Nombre de los Funkos
+     * @return CompletableFuture
      */
-    private void printNumberOfFunkosOfName(String name) {
+    private CompletableFuture<Object> printNumberOfFunkosOfName(String name) {
         try {
-            logger.info(String.valueOf(controller.findAll().stream().filter(e -> e.getName().startsWith(name)).count()));
-        } catch (SQLException e) {
-            throw new RuntimeException(e);
-        } catch (FunkoNotFoundException e) {
-            throw new RuntimeException(e);
+            return controller.findAll()
+                    .thenApplyAsync(a -> {
+                        logger.info("🔵 Número de Funkos de Stitch...");
+                        logger.info(String.valueOf(a.stream().filter(e -> e.getName().startsWith(name)).count()));
+                        return null;
+                    });
+        } catch (SQLException | FunkoNotFoundException e) {
+            String str = "Funkos no encontrados: " + e;
+            logger.error(str);
         }
+        return CompletableFuture.completedFuture(null);
     }
 
     /**
      * Imprime los Funkos lanzados en i
      *
      * @param i Año
+     * @return CompletableFuture
      */
-    private void printFunkosReleasedIn(int i) {
+    private CompletableFuture<Object> printFunkosReleasedIn(int i) {
         try {
-            controller.findAll().stream().filter(e -> e.getReleaseDate().getYear() == i)
-                    .forEach(e -> logger.info(e.toString()));
-        } catch (SQLException e) {
-            throw new RuntimeException(e);
-        } catch (FunkoNotFoundException e) {
-            throw new RuntimeException(e);
+            return controller.findAll()
+                    .thenApplyAsync(a -> {
+                        logger.info("🔵 Funkos que han sido lanzados en 2023...");
+                        a.stream().filter(e -> e.getReleaseDate().getYear() == i)
+                                .forEach(e -> logger.info(e.toString()));
+                        return null;
+                    });
+        } catch (SQLException | FunkoNotFoundException e) {
+            String str = "Funkos no encontrados: " + e;
+            logger.error(str);
         }
+        return CompletableFuture.completedFuture(null);
     }
 
     /**
      * Imprime el número de Funkos por modelo
+     *
+     * @return CompletableFuture
      */
-    private void printNumberOfFunkosByModels() {
+    private CompletableFuture<Object> printNumberOfFunkosByModels() {
         try {
-            controller.findAll().stream().collect(Collectors.groupingBy(Funko::getModel, Collectors.counting()))
-                    .forEach((model, count) -> logger.info("🔵 " + model + " -> " + count));
-        } catch (SQLException e) {
-            throw new RuntimeException(e);
-        } catch (FunkoNotFoundException e) {
-            throw new RuntimeException(e);
+            return controller.findAll()
+                    .thenApplyAsync(a -> {
+                        logger.info("🔵 Número de Funkos por modelos...");
+                        a.stream().collect(Collectors.groupingBy(Funko::getModel, Collectors.counting()))
+                                .forEach((model, count) -> {
+                                    String str = "🔵 " + model + " -> " + count;
+                                    logger.info(str);
+                                });
+                        return null;
+                    });
+        } catch (SQLException | FunkoNotFoundException e) {
+            String str = "Funkos no agrupados: " + e;
+            logger.error(str);
         }
+        return CompletableFuture.completedFuture(null);
     }
 
     /**
      * Imprime los Funkos agrupados por modelos
+     *
+     * @return CompletableFuture
      */
-    private void printFunkosGroupedByModels() {
+    private CompletableFuture<Object> printFunkosGroupedByModels() {
         try {
-            Map<Model, List<Funko>> s = controller.findAll().stream().collect(Collectors.groupingBy(Funko::getModel));
-            s.forEach((model, funkoList) -> {
-                logger.info("\n🔵 Modelo: " + model);
-                funkoList.forEach(funko -> logger.info(funko.toString()));
-            });
-        } catch (SQLException e) {
-            throw new RuntimeException(e);
-        } catch (FunkoNotFoundException e) {
-            throw new RuntimeException(e);
+            return controller.findAll()
+                    .thenApplyAsync(a -> {
+                        logger.info("🔵 Funkos agrupados por modelos...");
+                        Map<Model, List<Funko>> s = a.stream().collect(Collectors.groupingBy(Funko::getModel));
+                        s.forEach((model, funkoList) -> {
+                            String str = "\n🔵 Modelo: " + model;
+                            logger.info(str);
+                            funkoList.forEach(funko -> logger.info(funko.toString()));
+                        });
+                        return null;
+                    });
+        } catch (SQLException | FunkoNotFoundException e) {
+            String str = "Funkos no agrupados: " + e;
+            logger.error(str);
         }
+        return CompletableFuture.completedFuture(null);
     }
 
     /**
      * Imprime la media de precio de los Funkos
+     *
+     * @return CompletableFuture
      */
-    private void printAvgPriceOfFunkos() {
+    private CompletableFuture<Object> printAvgPriceOfFunkos() {
         try {
-            controller.findAll().stream().mapToDouble(Funko::getPrice).average()
-                    .ifPresent(e -> logger.info(String.format("%.2f", e)));
+            return controller.findAll()
+                    .thenApplyAsync(a -> {
+                        logger.info("🔵 Media de precio de Funkos...");
+                        a.stream().mapToDouble(Funko::getPrice).average()
+                                .ifPresent(e -> logger.info(String.format("%.2f", e)));
+                        return null;
+                    });
         } catch (SQLException e) {
-            throw new RuntimeException(e);
+            String str = "Fallo SQL: " + e;
+            logger.error(str);
         } catch (FunkoNotFoundException e) {
-            throw new RuntimeException(e);
+            String str = "No se han encontrado Funkos: " + e;
+            logger.error(str);
         }
+        return CompletableFuture.completedFuture(null);
     }
 
     /**
      * Imprime el Funko más caro
+     *
+     * @return CompletableFuture
      */
-    private void printExpensiveFunko() {
+    private CompletableFuture<Object> printExpensiveFunko() {
         try {
-            controller.findAll().stream().max(Comparator.comparingDouble(Funko::getPrice))
-                    .ifPresent(e -> logger.info(e.toString()));
+            return controller.findAll().thenApplyAsync(a -> {
+                logger.info("🔵 Funko más caro...");
+                a.stream().max(Comparator.comparingDouble(Funko::getPrice)).ifPresent(e -> logger.info(e.toString()));
+                return null;
+            });
         } catch (SQLException e) {
-            throw new RuntimeException(e);
+            String str = "Fallo SQL: " + e;
+            logger.error(str);
         } catch (FunkoNotFoundException e) {
-            throw new RuntimeException(e);
+            String str = "No se han encontrado Funkos: " + e;
+            logger.error(str);
         }
+        return CompletableFuture.completedFuture(null);
     }
 
     /**
      * Elimina un Funko y lo imprime
      *
-     * @param name Nombre del Funko
+     * @param name      Nombre del Funko
+     * @param isCorrect Si es un caso correcto
+     * @return CompletableFuture
      * @throws SQLException Excepción SQL
      */
-    private void printDelete(String name) throws SQLException {
-        logger.info("\nDelete:");
+    private CompletableFuture<Object> printDelete(String name, boolean isCorrect) throws SQLException {
         try {
-            controller.delete(controller.findByName(name).get(0).getCod().toString());
+            return controller.findByName(name)
+                    .thenApplyAsync(a -> {
+                        if (a.isEmpty()) {
+                            logger.info("No se ha encontrado el Funko.");
+                            return null;
+                        }
+                        controller.delete(a.get(0).getCod().toString())
+                                .thenApplyAsync(a2 -> {
+                                    if (isCorrect) {
+                                        logger.info("🟢 Probando caso correcto de Delete...");
+                                    } else {
+                                        logger.info("🔴 Probando caso incorrecto de Delete...");
+                                    }
+                                    logger.info("\nDelete:");
+                                    a2.ifPresent(funko -> {
+                                        String str = "Funko eliminado: " + funko;
+                                        logger.info(str);
+                                    });
+                                    return null;
+                                });
+                        return null;
+                    });
         } catch (FunkoNotFoundException e) {
             String strError = "El Funko no se ha encontrado: " + e;
             logger.error(strError);
-        } catch (FunkoNotRemovedException e) {
-            String strError = "El Funko no ha sido eliminado: " + e;
-            logger.error(strError);
         }
+        return CompletableFuture.completedFuture(null);
     }
 
     /**
      * Actualiza el nombre de un Funko y lo imprime
      *
-     * @param name    Nombre del Funko
-     * @param newName Nuevo nombre del Funko
+     * @param name      Nombre del Funko
+     * @param newName   Nuevo nombre del Funko
+     * @param isCorrect Si es un caso correcto
+     * @return CompletableFuture
      * @throws SQLException Excepción SQL
      */
-    private void printUpdate(String name, String newName) throws SQLException {
-        logger.info("\nUpdate:");
+    private CompletableFuture<Void> printUpdate(String name, String newName, boolean isCorrect) throws SQLException {
         try {
-            controller.update(controller.findByName(name).get(0).getCod().toString(), Funko.builder()
-                    .name(newName)
-                    .model(Model.DISNEY)
-                    .price(42.42)
-                    .releaseDate(LocalDate.now())
-                    .build()).ifPresent(e -> logger.info(e.toString()));
-        } catch (FunkoNotValidException e) {
-            String strError = "El Funko no es válido: " + e;
-            logger.error(strError);
+            return controller.findByName(name)
+                    .thenApplyAsync(a -> {
+                        try {
+                            controller.update(a.get(0).getCod().toString(),
+                                    Funko.builder()
+                                            .name(newName)
+                                            .model(Model.DISNEY)
+                                            .price(42.42)
+                                            .releaseDate(LocalDate.now())
+                                            .build()).thenApplyAsync(a2 -> {
+                                a2.ifPresent(e -> {
+                                    if (isCorrect) {
+                                        logger.info("🟢 Probando caso correcto de Update...");
+                                    } else {
+                                        logger.info("🔴 Probando caso incorrecto de Update...");
+                                    }
+                                    logger.info("\nUpdate:");
+                                    logger.info(e.toString());
+                                });
+                                return null;
+                            });
+                        } catch (FunkoNotValidException e) {
+                            String str = "El Funko no es válido: " + e;
+                            logger.error(str);
+                        } catch (SQLException e) {
+                            String str = "Fallo SQL: " + e;
+                            logger.error(str);
+                        }
+                        return null;
+                    });
         } catch (FunkoNotFoundException e) {
             String strError = "El Funko no se ha encontrado: " + e;
             logger.error(strError);
         }
+        return CompletableFuture.completedFuture(null);
     }
 
     /**
      * Realiza una copia de seguridad de la base de datos y la imprime
      *
      * @param rootFolderName Nombre de la carpeta raíz
+     * @return CompletableFuture
      */
-    private void doBackupAndPrint(String rootFolderName) {
-        logger.info("\nBackup:");
-        try {
-            controller.exportData(System.getProperty("user.dir") + File.separator + rootFolderName, "backup.json");
-        } catch (SQLException e) {
-            String strError = "Fallo SQL: " + e;
-            logger.error(strError);
-        } catch (IOException e) {
-            String strError = "Error de Input/Output: " + e;
-            logger.error(strError);
-        } catch (FunkoNotFoundException e) {
-            String strError = "Funko no encontrado: " + e;
-            logger.error(strError);
-        }
+    private CompletableFuture<Void> doBackupAndPrint(String rootFolderName) {
+        return CompletableFuture.runAsync(() -> {
+            try {
+                controller.exportData(System.getProperty("user.dir") + File.separator + rootFolderName, "backup.json")
+                        .thenApplyAsync(a -> {
+                            logger.info("🟢 Copia de seguridad...");
+                            logger.info("Copia de seguridad realizada.");
+                            return a;
+                        }).join();
+            } catch (SQLException e) {
+                String strError = "Fallo SQL: " + e;
+                logger.error(strError);
+            } catch (IOException e) {
+                String strError = "Error de Input/Output: " + e;
+                logger.error(strError);
+            } catch (FunkoNotFoundException e) {
+                String strError = "Funko no encontrado: " + e;
+                logger.error(strError);
+            }
+        });
     }
 
     /**
      * Guarda en la base de datos el Funko pasado por parámetro y lo imprime
      *
-     * @param funko Funko a imprimir
+     * @param funko     Funko a imprimir
+     * @param isCorrect Si es un caso correcto
+     * @return CompletableFuture
      * @throws SQLException Excepción SQL
      */
-    private void printSave(Funko funko) throws SQLException {
-        logger.info("\nSave:");
+    private CompletableFuture<Void> printSave(Funko funko, boolean isCorrect) throws SQLException {
         try {
-            try {
-                controller.save(funko).ifPresent(e -> logger.info(e.toString()));
-            } catch (FunkoNotValidException e) {
-                String strError = "El Funko no es válido: " + e;
-                logger.error(strError);
-            }
-        } catch (FunkoNotSavedException e) {
+            return controller.save(funko)
+                    .thenApplyAsync(a -> {
+                        if (isCorrect) {
+                            logger.info("🟢 Probando caso correcto de Save...");
+                        } else {
+                            logger.info("🔴 Probando caso incorrecto de Save...");
+                        }
+                        logger.info("\nSave:");
+                        a.ifPresent(e -> logger.info(e.toString()));
+                        return null;
+                    });
+
+        } catch (FunkoNotSavedException | FunkoNotValidException e) {
             String strError = "No se ha podido guardar el Funko: " + e;
             logger.error(strError);
         }
+        return CompletableFuture.completedFuture(null);
     }
 
     /**
      * Imprime el Funko dado un ID
      *
-     * @param id Id del Funko
+     * @param id        Id del Funko
+     * @param isCorrect Si es un caso correcto
+     * @return CompletableFuture
      * @throws SQLException Excepción SQL
      */
-    private void printFindById(String id) throws SQLException {
-        logger.info("\nFind by Id:");
+    private CompletableFuture<Void> printFindById(String id, boolean isCorrect) throws SQLException {
         try {
-            controller.findById(id).ifPresent(e -> logger.info(e.toString()));
+            return controller.findById(id)
+                    .thenApplyAsync(a -> {
+                        if (isCorrect) {
+                            logger.info("🟢 Probando caso correcto de FindById...");
+                        } else {
+                            logger.info("🔴 Probando caso incorrecto de FindById...");
+                        }
+                        logger.info("\nFind by Id:");
+                        a.ifPresent(e -> logger.info(e.toString()));
+                        return null;
+                    });
         } catch (FunkoNotFoundException e) {
             String strError = "No se ha encontrado el Funko con id " + id + " -> " + e;
             logger.error(strError);
         }
+        return CompletableFuture.completedFuture(null);
     }
 
     /**
      * Imprime los Funkos que tengan el nombre pasado por parámetro
      *
-     * @param name Nombre de los Funkos
+     * @param name      Nombre de los Funkos
+     * @param isCorrect Si es un caso correcto
+     * @return CompletableFuture
      * @throws SQLException Excepción SQL
      */
-    private void printFindByName(String name) throws SQLException {
-        logger.info("\nFind by Name:");
+    private CompletableFuture<Void> printFindByName(String name, boolean isCorrect) throws SQLException {
         try {
-            controller.findByName(name).forEach(e -> logger.info(e.toString()));
+            return controller.findByName(name)
+                    .thenApplyAsync(a -> {
+                        if (isCorrect) {
+                            logger.info("🟢 Probando caso correcto de FindByName...");
+                        } else {
+                            logger.info("🔴 Probando caso incorrecto de FindByName...");
+                        }
+                        logger.info("\nFind by Name:");
+                        a.forEach(e -> logger.info(e.toString()));
+                        return null;
+                    });
         } catch (FunkoNotFoundException e) {
             String strError = "No se han encontrado Funkos: " + e;
             logger.error(strError);
         }
+        return CompletableFuture.completedFuture(null);
     }
 
     /**
      * Imprime todos los Funkos
      *
+     * @return CompletableFuture
      * @throws SQLException Excepción SQL
      */
-    private void printFindAll() throws SQLException {
-        logger.info("\nFind All:");
+    private CompletableFuture<Void> printFindAll() throws SQLException {
         try {
-            controller.findAll().forEach(e -> logger.info(e.toString()));
+            return controller.findAll()
+                    .thenApplyAsync(a -> {
+                                logger.info("🟢 Probando caso correcto de FindAll...");
+                                logger.info("\nFind All:");
+                                a.forEach(e -> logger.info(e.toString()));
+                                return null;
+                            }
+                    );
         } catch (FunkoNotFoundException e) {
             String strError = "No se han encontrado Funkos: " + e;
             logger.error(strError);
         }
+        return CompletableFuture.completedFuture(null);
     }
 
     /**
      * Lee un archivo CSV y lo inserta en la base de datos de manera asíncrona
      *
      * @param path Ruta del archivo CSV
+     * @return CompletableFuture
      */
-    public void loadFunkosFileAndInsertToDatabase(String path) {
-        AtomicBoolean failed = new AtomicBoolean(false);
-        CsvManager csvManager = CsvManager.getInstance();
-        try {
-            csvManager.fileToFunkoList(path)
-                    .thenAcceptAsync(optionalFunkoList -> optionalFunkoList.ifPresent(e -> {
-                        e.forEach(funko -> {
-                            try {
-                                controller.save(funko);
-                            } catch (SQLException throwables) {
-                                failed.set(true);
-                                String strError = "Error: " + throwables;
-                                logger.error(strError);
-                            } catch (FunkoNotValidException ex1) {
-                                String strError = "El Funko no es válido: " + ex1;
-                                logger.error(strError);
-                            } catch (FunkoNotSavedException ex2) {
-                                String strError = "El Funko no se ha guardado: " + ex2;
-                                logger.error(strError);
-                            }
-                        });
-                        if (failed.get()) {
-                            logger.error("Error al insertar los datos en la base de datos");
-                        }
-                    })).exceptionally(e -> {
-                        logger.error("Error al leer el CSV");
-                        return null;
-                    });
-        } catch (ReadCSVFailException | RuntimeException e) {
-            logger.error("Error al leer el CSV");
-        }
+    public CompletableFuture<Void> loadFunkosFileAndInsertToDatabase(String path) {
+        return CompletableFuture.runAsync(() -> {
+            AtomicBoolean failed = new AtomicBoolean(false);
+            CsvManager csvManager = CsvManager.getInstance();
+            try {
+                List<Funko> funkoList = csvManager.fileToFunkoList(path)
+                        .thenApplyAsync(optionalFunkoList -> optionalFunkoList.orElse(Collections.emptyList()))
+                        .join();
+                CompletableFuture<Void> insertionFuture = CompletableFuture.allOf(
+                        funkoList.stream()
+                                .map(funko -> CompletableFuture.runAsync(() -> {
+                                    try {
+                                        controller.save(funko);
+                                    } catch (SQLException throwables) {
+                                        String strError = "Error: " + throwables;
+                                        logger.error(strError);
+                                    } catch (FunkoNotValidException | FunkoNotSavedException ex) {
+                                        String strError = "El Funko no es válido: " + ex;
+                                        logger.error(strError);
+                                    }
+                                }))
+                                .toArray(CompletableFuture[]::new)
+                );
+                insertionFuture.join();
+                if (failed.get()) {
+                    logger.error("Error al insertar los datos en la base de datos");
+                }
+            } catch (ReadCSVFailException | RuntimeException e) {
+                logger.error("Error al leer el CSV");
+            }
+        });
     }
 }

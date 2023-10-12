@@ -33,7 +33,7 @@ public class ApplicationProperties {
      *
      * @return Instancia de la clase ApplicationProperties
      */
-    public static ApplicationProperties getInstance() {
+    public static synchronized ApplicationProperties getInstance() {
         if (applicationPropertiesInstance == null) {
             applicationPropertiesInstance = new ApplicationProperties();
         }

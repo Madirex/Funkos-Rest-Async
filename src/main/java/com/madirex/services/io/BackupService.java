@@ -2,18 +2,21 @@ package com.madirex.services.io;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import com.google.gson.reflect.TypeToken;
 import com.madirex.exceptions.DirectoryException;
 import com.madirex.exceptions.ExportDataException;
 import com.madirex.exceptions.ImportDataException;
+import com.madirex.models.Funko;
 import com.madirex.utils.LocalDateAdapter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.IOException;
+import java.lang.reflect.Type;
 import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.time.LocalDate;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 
@@ -50,7 +53,7 @@ public class BackupService<T> {
      * @param fileName Nombre del archivo del backup
      * @param data     Datos a guardar
      */
-    public void exportData(String path, String fileName, T data) {
+    public CompletableFuture<Void> exportData(String path, String fileName, T data) {
         CompletableFuture.runAsync(() -> {
             File dataDir = new File(path);
             if (dataDir.exists()) {
@@ -69,7 +72,8 @@ public class BackupService<T> {
             } else {
                 throw new CompletionException(new DirectoryException("No se creará el backup."));
             }
-        });
+        }).join();
+        return CompletableFuture.completedFuture(null);
     }
 
     /**
@@ -77,25 +81,27 @@ public class BackupService<T> {
      *
      * @param path     Ruta del archivo JSON
      * @param fileName Nombre del archivo JSON
-     * @param dataType Tipo de dato a importar
      * @return CompletableFuture de los datos importados
      */
-    public CompletableFuture<T> importData(String path, String fileName, Class<T> dataType) {
+    public CompletableFuture<List<Funko>> importData(String path, String fileName) {
         return CompletableFuture.supplyAsync(() -> {
-            File dataDir = new File(path);
+            File folder = new File(path + File.separator);
+            if (!folder.exists()) {
+                throw new CompletionException(new DirectoryException("No se creará el backup."));
+            }
+            File dataFile = new File(path + File.separator + fileName);
             try {
-                if (dataDir.exists()) {
-                    String dest = path + File.separator + fileName;
-                    String json = new String(Files.readAllBytes(Paths.get(dest)));
-                    Gson gson = new GsonBuilder()
-                            .registerTypeAdapter(LocalDate.class, new LocalDateAdapter())
-                            .create();
-                    return gson.fromJson(json, dataType);
-                } else {
-                    throw new CompletionException(new DirectoryException("No se creará el backup."));
-                }
+                String json = new String(Files.readAllBytes(dataFile.toPath()));
+                Type listType = new TypeToken<List<Funko>>() {
+                }.getType();
+                Gson gson = new GsonBuilder()
+                        .registerTypeAdapter(LocalDate.class, new LocalDateAdapter())
+                        .create();
+
+                List<Funko> dataList = gson.fromJson(json, listType);
+                return dataList;
             } catch (IOException | RuntimeException e) {
-                throw new CompletionException(new ImportDataException(e.getMessage()));
+                throw new CompletionException(new ImportDataException("Error al importar los datos: " + e.getMessage()));
             }
         }).exceptionally(ex -> {
             throw new CompletionException(new ImportDataException(ex.getMessage()));

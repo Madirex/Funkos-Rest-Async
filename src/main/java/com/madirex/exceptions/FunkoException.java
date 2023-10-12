@@ -9,7 +9,7 @@ public abstract class FunkoException extends Exception {
      *
      * @param message mensaje de error
      */
-    public FunkoException(String message) {
+    protected FunkoException(String message) {
         super(message);
     }
 }

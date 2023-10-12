@@ -10,6 +10,6 @@ public class FunkoNotFoundException extends FunkoException {
          *
          * @param message mensaje de error
          */
-        super("Funko/a no encontrado con id: " + message);
+        super("Funko/a no encontrado: " + message);
     }
 }

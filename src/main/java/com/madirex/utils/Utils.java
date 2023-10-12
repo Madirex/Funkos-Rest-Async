@@ -18,7 +18,7 @@ public class Utils {
      *
      * @return Instancia de la clase Utils
      */
-    public static Utils getInstance() {
+    public static synchronized Utils getInstance() {
         if (utilsInstance == null) {
             utilsInstance = new Utils();
         }

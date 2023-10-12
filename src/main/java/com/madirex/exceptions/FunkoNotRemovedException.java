@@ -3,7 +3,7 @@ package com.madirex.exceptions;
 /**
  * Excepción al no eliminar un Funko
  */
-public class FunkoNotRemovedException extends FunkoException{
+public class FunkoNotRemovedException extends FunkoException {
     /**
      * Constructor
      *

@@ -1,14 +1,15 @@
 package com.madirex.services.crud.funko;
 
-import com.madirex.exceptions.*;
+import com.madirex.exceptions.DirectoryException;
+import com.madirex.exceptions.FunkoNotRemovedException;
+import com.madirex.exceptions.FunkoNotValidException;
 import com.madirex.models.Funko;
-import com.madirex.repositories.funko.FunkoRepository;
+import com.madirex.repositories.funko.FunkoRepositoryImpl;
 import com.madirex.services.io.BackupService;
 import lombok.Getter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.IOException;
 import java.sql.SQLException;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -26,8 +27,8 @@ public class FunkoServiceImpl implements FunkoService<List<Funko>> {
     @Getter
     private final Map<String, Funko> cache;
     private final Logger logger = LoggerFactory.getLogger(FunkoServiceImpl.class);
-    private final FunkoRepository funkoRepository;
-    private final BackupService backupService;
+    private final FunkoRepositoryImpl funkoRepository;
+    private final BackupService<List<Funko>> backupService;
 
     /**
      * Constructor de la clase
@@ -35,7 +36,7 @@ public class FunkoServiceImpl implements FunkoService<List<Funko>> {
      * @param funkoRepository Instancia de la clase FunkoRepository
      * @param backupService   Instancia de la clase BackupService
      */
-    private FunkoServiceImpl(FunkoRepository funkoRepository, BackupService backupService) {
+    private FunkoServiceImpl(FunkoRepositoryImpl funkoRepository, BackupService<List<Funko>> backupService) {
         this.funkoRepository = funkoRepository;
         this.backupService = backupService;
         this.cache = new LinkedHashMap<>(CACHE_SIZE, 0.75f, true) {
@@ -53,7 +54,8 @@ public class FunkoServiceImpl implements FunkoService<List<Funko>> {
      * @param backupService   Instancia de la clase BackupService
      * @return Instancia de la clase
      */
-    public static synchronized FunkoServiceImpl getInstance(FunkoRepository funkoRepository, BackupService backupService) {
+    public static synchronized FunkoServiceImpl getInstance(FunkoRepositoryImpl funkoRepository,
+                                                            BackupService<List<Funko>> backupService) {
         if (funkoServiceImplInstance == null) {
             funkoServiceImplInstance = new FunkoServiceImpl(funkoRepository, backupService);
         }
@@ -67,7 +69,7 @@ public class FunkoServiceImpl implements FunkoService<List<Funko>> {
      * @return Optional de la lista de elementos
      */
     @Override
-    public List<Funko> findAll() throws SQLException {
+    public CompletableFuture<List<Funko>> findAll() {
         logger.debug("Obteniendo todos los Funkos");
         return funkoRepository.findAll();
     }
@@ -79,13 +81,16 @@ public class FunkoServiceImpl implements FunkoService<List<Funko>> {
      * @return Lista de elementos encontrados
      */
     @Override
-    public List<Funko> findByName(String name) throws SQLException, FunkoNotFoundException {
+    public CompletableFuture<List<Funko>> findByName(String name) {
         logger.debug("Obteniendo todos los Funkos ordenados por nombre");
-        var list = funkoRepository.findByName(name);
-        if (list.isEmpty()) {
-            throw new FunkoNotFoundException("No se ha encontrado el Funko con nombre " + name);
-        }
-        return funkoRepository.findByName(name);
+        return funkoRepository.findByName(name)
+                .thenApplyAsync(list -> {
+                    if (list.isEmpty()) {
+                        String str = "No se ha encontrado el Funko con nombre " + name;
+                        logger.error(str);
+                    }
+                    return list;
+                });
     }
 
     /**
@@ -94,12 +99,12 @@ public class FunkoServiceImpl implements FunkoService<List<Funko>> {
      * @param path     Ruta del directorio donde se guardará el backup
      * @param fileName Nombre del archivo del backup
      * @param data     Datos a guardar
-     * @throws SQLException      Si hay un error en la base de datos
+     * @throws SQLException       Si hay un error en la base de datos
      * @throws DirectoryException El directorio no existe
      */
     @Override
-    public void exportData(String path, String fileName, List<Funko> data) throws SQLException {
-        backupService.exportData(path, fileName, findAll());
+    public CompletableFuture<Void> exportData(String path, String fileName, List<Funko> data) throws SQLException {
+        return findAll().thenComposeAsync(s -> backupService.exportData(path, fileName, s));
     }
 
     /**
@@ -111,7 +116,7 @@ public class FunkoServiceImpl implements FunkoService<List<Funko>> {
      */
     @Override
     public CompletableFuture<List<Funko>> importData(String path, String fileName) {
-        return backupService.importData(path, fileName, List.class);
+        return backupService.importData(path, fileName);
     }
 
     /**
@@ -121,17 +126,18 @@ public class FunkoServiceImpl implements FunkoService<List<Funko>> {
      * @return Optional del elemento encontrado
      */
     @Override
-    public Optional<Funko> findById(String id) throws SQLException {
+    public CompletableFuture<Optional<Funko>> findById(String id) throws SQLException {
         logger.debug("Obteniendo Funko por id");
         Funko funko = cache.get(id);
         if (funko != null) {
             logger.debug("Funko encontrado en caché");
-            return Optional.of(funko);
+            return CompletableFuture.supplyAsync(() -> Optional.of(funko));
         }
         logger.debug("Funko no encontrado en caché, buscando en base de datos");
-        Optional<Funko> result = funkoRepository.findById(id);
-        result.ifPresent(value -> cache.put(id, value));
-        return result;
+        return funkoRepository.findById(id).thenApplyAsync(r -> {
+            r.ifPresent(value -> cache.put(id, value));
+            return r;
+        });
     }
 
     /**
@@ -141,11 +147,10 @@ public class FunkoServiceImpl implements FunkoService<List<Funko>> {
      * @return Optional del elemento guardado
      */
     @Override
-    public Optional<Funko> save(Funko funko) throws SQLException, FunkoNotSavedException {
+    public CompletableFuture<Optional<Funko>> save(Funko funko) throws SQLException {
         logger.debug("Guardando Funko");
         cache.put(funko.getCod().toString(), funko);
-        return Optional.of(funkoRepository.save(funko).orElseThrow(() ->
-                new FunkoNotSavedException("No se ha podido guardar el Funko")));
+        return funkoRepository.save(funko);
     }
 
     /**
@@ -156,11 +161,10 @@ public class FunkoServiceImpl implements FunkoService<List<Funko>> {
      * @return Optional del elemento actualizado
      */
     @Override
-    public Optional<Funko> update(String funkoId, Funko newFunko) throws SQLException, FunkoNotValidException {
+    public CompletableFuture<Optional<Funko>> update(String funkoId, Funko newFunko) throws SQLException, FunkoNotValidException {
         logger.debug("Actualizando Funko");
         cache.put(newFunko.getCod().toString(), newFunko);
-        return Optional.of(funkoRepository.update(funkoId, newFunko).orElseThrow(() ->
-                new FunkoNotValidException("No se ha actualizado el Funko con id " + funkoId)));
+        return funkoRepository.update(funkoId, newFunko);
     }
 
     /**
@@ -170,13 +174,8 @@ public class FunkoServiceImpl implements FunkoService<List<Funko>> {
      * @return ¿Borrado?
      */
     @Override
-    public boolean delete(String id) throws SQLException, FunkoNotRemovedException {
-        boolean removed;
+    public CompletableFuture<Boolean> delete(String id) throws SQLException, FunkoNotRemovedException {
         logger.debug("Eliminando Funko");
-        removed = funkoRepository.delete(id);
-        if (!removed) {
-            throw new FunkoNotRemovedException("No se ha encontrado el Funko con id " + id);
-        }
-        return removed;
+        return funkoRepository.delete(id);
     }
 }
