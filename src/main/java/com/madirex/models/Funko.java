@@ -16,7 +16,8 @@ import java.util.UUID;
 public class Funko {
     @Builder.Default
     private UUID cod = UUID.randomUUID();
-    private Optional<Long> myId;
+    @Builder.Default
+    private Long myId = -1L;
     private String name;
     private Model model;
     private double price;

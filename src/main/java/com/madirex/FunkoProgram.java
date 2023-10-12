@@ -410,7 +410,6 @@ public class FunkoProgram {
                         logger.error("Error al leer el CSV");
                         return null;
                     });
-            logger.error("Error al leer el CSV");
         } catch (ReadCSVFailException | RuntimeException e) {
             logger.error("Error al leer el CSV");
         }

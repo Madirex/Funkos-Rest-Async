@@ -53,7 +53,7 @@ public class FunkoRepositoryImpl implements FunkoRepository {
         while (res.next()) {
             list.add(Funko.builder()
                     .cod(UUID.fromString(res.getString("cod")))
-                    .myId(Optional.of(res.getLong("myId")))
+                    .myId(res.getLong("myId"))
                     .name(res.getString("nombre"))
                     .model(Model.valueOf(res.getString("modelo")))
                     .price(res.getDouble("precio"))
@@ -79,7 +79,7 @@ public class FunkoRepositoryImpl implements FunkoRepository {
         if (res.next()) {
             optReturn = Optional.of(Funko.builder()
                     .cod(UUID.fromString(res.getString("cod")))
-                    .myId(Optional.of(res.getLong("myId")))
+                    .myId(res.getLong("myId"))
                     .name(res.getString("nombre"))
                     .model(Model.valueOf(res.getString("modelo")))
                     .price(res.getDouble("precio"))
@@ -99,7 +99,7 @@ public class FunkoRepositoryImpl implements FunkoRepository {
     @Override
     public Optional<Funko> save(Funko entity) throws SQLException {
         var sql = "INSERT INTO funko (cod, myId, nombre, modelo, precio, fecha_lanzamiento, created_at, updated_at) " +
-                "VALUES (?, ?, ?, ?, ?, ?, ?)";
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
         database.beginTransaction();
         database.insertAndGetKey(sql, entity.getCod().toString(),
                 entity.getMyId(),
