@@ -1,6 +1,8 @@
 package com.madirex.services.database;
 
 import com.madirex.utils.ApplicationProperties;
+import com.zaxxer.hikari.HikariConfig;
+import com.zaxxer.hikari.HikariDataSource;
 import io.github.cdimascio.dotenv.Dotenv;
 import lombok.NonNull;
 import org.apache.ibatis.jdbc.ScriptRunner;
@@ -30,12 +32,18 @@ public class DatabaseManager {
     private PreparedStatement preparedStatement;
     private String connectionUrl;
     private boolean dataInitialized = false;
+    private final HikariDataSource dataSource;
 
     /**
      * Constructor privado para Singleton
      */
     private DatabaseManager() {
         initConfig();
+        HikariConfig config = new HikariConfig();
+        config.setJdbcUrl(connectionUrl);
+        config.setUsername(user);
+        config.setPassword(password);
+        dataSource = new HikariDataSource(config);
     }
 
     /**
@@ -43,7 +51,7 @@ public class DatabaseManager {
      *
      * @return instancia del controladorBD
      */
-    public static DatabaseManager getInstance() {
+    public static synchronized DatabaseManager getInstance() {
         if (controller == null) {
             controller = new DatabaseManager();
         }
@@ -53,7 +61,7 @@ public class DatabaseManager {
     /**
      * Carga la configuración de acceso al servidor de Base de Datos
      */
-    private void initConfig() {
+    private synchronized void initConfig() {
         ApplicationProperties properties = ApplicationProperties.getInstance();
         serverUrl = properties.readProperty("db.url", "localhost");
         databaseName = properties.readProperty("db.name", "AppDatabase");
@@ -71,11 +79,11 @@ public class DatabaseManager {
      *
      * @throws SQLException Servidor no accesible por problemas de conexión o datos de acceso incorrectos
      */
-    public void open() throws SQLException {
+    public synchronized void open() throws SQLException {
         if (connection != null && !connection.isClosed()) {
             return;
         }
-        connection = DriverManager.getConnection(connectionUrl, user, password);
+        connection = dataSource.getConnection();
         try {
             initData();
         } catch (IOException e) {
@@ -87,7 +95,7 @@ public class DatabaseManager {
      * Inicializa la base de datos con los datos del fichero data.sql
      * Solo si el properties tiene la propiedad db.init en TRUE
      */
-    public void initData() throws SQLException, IOException {
+    public synchronized void initData() throws SQLException, IOException {
         if (!dataInitialized && initScript.equalsIgnoreCase("true")) {
             String sql = new String(Objects.requireNonNull(getClass().getClassLoader()
                     .getResourceAsStream("data.sql")).readAllBytes(), StandardCharsets.UTF_8);
@@ -101,7 +109,7 @@ public class DatabaseManager {
     /**
      * Cierra la conexión con el servidor de base de datos
      */
-    public void close() {
+    public synchronized void close() {
         try {
             preparedStatement.close();
             connection.close();
@@ -119,7 +127,7 @@ public class DatabaseManager {
      * @return ResultSet de la consulta
      * @throws SQLException No se ha podido realizar la consulta o la tabla no existe
      */
-    private ResultSet executeQuery(@NonNull String querySQL, Object... params) throws SQLException {
+    private synchronized ResultSet executeQuery(@NonNull String querySQL, Object... params) throws SQLException {
         this.open();
         var strParams = Arrays.toString(params);
         logger.debug("Ejecutando consulta: " + querySQL + " con parámetros: " + strParams);
@@ -139,7 +147,7 @@ public class DatabaseManager {
      * @return ResultSet de la consulta
      * @throws SQLException No se ha podido realizar la consulta o la tabla no existe
      */
-    public Optional<ResultSet> select(@NonNull String querySQL, Object... params) throws SQLException {
+    public synchronized Optional<ResultSet> select(@NonNull String querySQL, Object... params) throws SQLException {
         return Optional.of(executeQuery(querySQL, params));
     }
 
@@ -155,7 +163,7 @@ public class DatabaseManager {
      * @throws SQLException No se ha podido realizar la consulta o la tabla no existe o el desplazamiento
      *                      es mayor que el número de registros
      */
-    public Optional<ResultSet> select(@NonNull String querySQL, int limit, int offset, Object... params) throws SQLException {
+    public synchronized Optional<ResultSet> select(@NonNull String querySQL, int limit, int offset, Object... params) throws SQLException {
         String query = querySQL + " LIMIT " + limit + " OFFSET " + offset;
         return Optional.of(executeQuery(query, params));
     }
@@ -169,7 +177,7 @@ public class DatabaseManager {
      * @return Clave del registro insertado
      * @throws SQLException tabla no existe o no se ha podido realizar la operación
      */
-    public Optional<ResultSet> insertAndGetKey(@NonNull String insertSQL, Object... params) throws SQLException {
+    public synchronized Optional<ResultSet> insertAndGetKey(@NonNull String insertSQL, Object... params) throws SQLException {
         this.open();
         var strParams = Arrays.toString(params);
         logger.debug("Ejecutando consulta " + insertSQL + " con parámetros: " + strParams);
@@ -190,7 +198,7 @@ public class DatabaseManager {
      * @return número de registros insertados
      * @throws SQLException tabla no existe o no se ha podido realizar la operación
      */
-    public int insert(@NonNull String insertSQL, Object... params) throws SQLException {
+    public synchronized int insert(@NonNull String insertSQL, Object... params) throws SQLException {
         return updateQuery(insertSQL, params);
     }
 
@@ -203,7 +211,7 @@ public class DatabaseManager {
      * @return número de registros actualizados
      * @throws SQLException tabla no existe o no se ha podido realizar la operación
      */
-    public int update(@NonNull String updateSQL, Object... params) throws SQLException {
+    public synchronized int update(@NonNull String updateSQL, Object... params) throws SQLException {
         return updateQuery(updateSQL, params);
     }
 
@@ -216,7 +224,7 @@ public class DatabaseManager {
      * @return número de registros eliminados
      * @throws SQLException tabla no existe o no se ha podido realizar la operación
      */
-    public int delete(@NonNull String deleteSQL, Object... params) throws SQLException {
+    public synchronized int delete(@NonNull String deleteSQL, Object... params) throws SQLException {
         return updateQuery(deleteSQL, params);
     }
 
@@ -229,7 +237,7 @@ public class DatabaseManager {
      * @return número de registros aplicados
      * @throws SQLException no se ha podido realizar la operación
      */
-    private int updateQuery(@NonNull String genericSQL, Object... params) throws SQLException {
+    private synchronized int updateQuery(@NonNull String genericSQL, Object... params) throws SQLException {
         this.open();
         var strParams = Arrays.toString(params);
         logger.debug("Ejecutando consulta " + genericSQL + " con parámetros: " + strParams);
@@ -247,7 +255,7 @@ public class DatabaseManager {
      * @return número de registros aplicados
      * @throws SQLException no se ha podido realizar la operación
      */
-    public int initSQL(String genericSQL) throws SQLException {
+    public synchronized int initSQL(String genericSQL) throws SQLException {
         logger.debug("Datos de inicio: " + genericSQL);
         return updateQuery(genericSQL);
     }
@@ -257,7 +265,7 @@ public class DatabaseManager {
      *
      * @throws SQLException No se ha podido realizar la operación
      */
-    public void beginTransaction() throws SQLException {
+    public synchronized void beginTransaction() throws SQLException {
         if (connection == null) {
             this.open();
         }
@@ -269,7 +277,7 @@ public class DatabaseManager {
      *
      * @throws SQLException No se ha podido realizar la operación
      */
-    public void commit() throws SQLException {
+    public synchronized void commit() throws SQLException {
         connection.commit();
         connection.setAutoCommit(true);
     }
@@ -279,7 +287,7 @@ public class DatabaseManager {
      *
      * @throws SQLException No se ha podido realizar la operación
      */
-    private void rollback() throws SQLException {
+    private synchronized void rollback() throws SQLException {
         connection.rollback();
         connection.setAutoCommit(true);
     }
@@ -293,7 +301,7 @@ public class DatabaseManager {
      * @throws FileNotFoundException No se ha encontrado el fichero
      * @throws SQLException          No se ha podido realizar la operación
      */
-    public void initData(@NonNull String sqlFile, boolean logWriter) throws FileNotFoundException, SQLException {
+    public synchronized void initData(@NonNull String sqlFile, boolean logWriter) throws FileNotFoundException, SQLException {
         logger.debug("Inicializando datos de fichero: " + sqlFile + " con logWriter: " + logWriter);
         this.open();
         var sr = new ScriptRunner(connection);
