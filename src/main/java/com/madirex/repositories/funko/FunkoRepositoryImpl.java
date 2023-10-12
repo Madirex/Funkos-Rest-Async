@@ -3,6 +3,7 @@ package com.madirex.repositories.funko;
 import com.madirex.models.Funko;
 import com.madirex.models.Model;
 import com.madirex.services.database.DatabaseManager;
+import com.madirex.services.crud.funko.IdGenerator;
 
 import java.sql.SQLException;
 import java.time.LocalDateTime;
@@ -16,14 +17,17 @@ import java.util.UUID;
  */
 public class FunkoRepositoryImpl implements FunkoRepository {
     private static FunkoRepositoryImpl funkoRepositoryImplInstance;
+    private final IdGenerator idGenerator;
     private final DatabaseManager database;
 
     /**
      * Constructor de la clase
      *
+     * @param idGenerator Instancia de la clase IdGenerator
      * @param database Instancia de la clase DatabaseManager
      */
-    private FunkoRepositoryImpl(DatabaseManager database) {
+    private FunkoRepositoryImpl(IdGenerator idGenerator, DatabaseManager database) {
+        this.idGenerator = idGenerator;
         this.database = database;
     }
 
@@ -32,9 +36,9 @@ public class FunkoRepositoryImpl implements FunkoRepository {
      *
      * @return Instancia de la clase
      */
-    public static FunkoRepositoryImpl getInstance(DatabaseManager database) {
+    public static FunkoRepositoryImpl getInstance(IdGenerator idGenerator, DatabaseManager database) {
         if (funkoRepositoryImplInstance == null) {
-            funkoRepositoryImplInstance = new FunkoRepositoryImpl(database);
+            funkoRepositoryImplInstance = new FunkoRepositoryImpl(idGenerator, database);
         }
         return funkoRepositoryImplInstance;
     }
@@ -102,7 +106,7 @@ public class FunkoRepositoryImpl implements FunkoRepository {
                 "VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
         database.beginTransaction();
         database.insertAndGetKey(sql, entity.getCod().toString(),
-                entity.getMyId(),
+                idGenerator.newId(),
                 entity.getName(),
                 entity.getModel().toString(),
                 entity.getPrice(),

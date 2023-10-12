@@ -4,6 +4,7 @@ import com.madirex.models.Funko;
 import com.madirex.models.Model;
 import com.madirex.repositories.funko.FunkoRepository;
 import com.madirex.repositories.funko.FunkoRepositoryImpl;
+import com.madirex.services.crud.funko.IdGenerator;
 import com.madirex.services.database.DatabaseManager;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -28,7 +29,7 @@ class FunkosRepositoryTestDB {
      */
     @BeforeEach
     void setUp() throws SQLException {
-        funkoRepository = FunkoRepositoryImpl.getInstance(DatabaseManager.getInstance());
+        funkoRepository = FunkoRepositoryImpl.getInstance(IdGenerator.getInstance(), DatabaseManager.getInstance());
         funkoRepository.findAll().forEach(e -> {
             try {
                 funkoRepository.delete(e.getCod().toString());

@@ -8,6 +8,7 @@ import com.madirex.repositories.funko.FunkoRepositoryImpl;
 import com.madirex.services.crud.funko.FunkoServiceImpl;
 import com.madirex.services.database.DatabaseManager;
 import com.madirex.services.io.CsvManager;
+import com.madirex.services.crud.funko.IdGenerator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -36,7 +37,7 @@ public class FunkoProgram {
      */
     private FunkoProgram() {
         controller = new FunkoController(new FunkoServiceImpl(FunkoRepositoryImpl
-                .getInstance(DatabaseManager.getInstance())));
+                .getInstance(IdGenerator.getInstance(), DatabaseManager.getInstance())));
     }
 
     /**
