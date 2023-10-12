@@ -2,12 +2,10 @@ package com.madirex.services.crud.funko;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
-import com.madirex.exceptions.FunkoNotFoundException;
-import com.madirex.exceptions.FunkoNotRemovedException;
-import com.madirex.exceptions.FunkoNotSavedException;
-import com.madirex.exceptions.FunkoNotValidException;
+import com.madirex.exceptions.*;
 import com.madirex.models.Funko;
 import com.madirex.repositories.funko.FunkoRepository;
+import com.madirex.services.io.BackupService;
 import com.madirex.utils.LocalDateAdapter;
 import lombok.Getter;
 import org.slf4j.Logger;
@@ -28,19 +26,23 @@ import java.util.Optional;
  */
 public class FunkoServiceImpl implements FunkoService {
     private static final int CACHE_SIZE = 25;
+    private static FunkoServiceImpl funkoServiceImplInstance;
 
     @Getter
     private final Map<String, Funko> cache;
     private final Logger logger = LoggerFactory.getLogger(FunkoServiceImpl.class);
     private final FunkoRepository funkoRepository;
+    private final BackupService backupService;
 
     /**
      * Constructor de la clase
      *
      * @param funkoRepository Instancia de la clase FunkoRepository
+     * @param backupService   Instancia de la clase BackupService
      */
-    public FunkoServiceImpl(FunkoRepository funkoRepository) {
+    private FunkoServiceImpl(FunkoRepository funkoRepository, BackupService backupService) {
         this.funkoRepository = funkoRepository;
+        this.backupService = backupService;
         this.cache = new LinkedHashMap<>(CACHE_SIZE, 0.75f, true) {
             @Override
             protected boolean removeEldestEntry(Map.Entry<String, Funko> eldest) {
@@ -48,6 +50,21 @@ public class FunkoServiceImpl implements FunkoService {
             }
         };
     }
+
+    /**
+     * Devuelve la instancia de la clase
+     *
+     * @param funkoRepository Instancia de la clase FunkoRepository
+     * @param backupService   Instancia de la clase BackupService
+     * @return Instancia de la clase
+     */
+    public static synchronized FunkoServiceImpl getInstance(FunkoRepository funkoRepository, BackupService backupService) {
+        if (funkoServiceImplInstance == null) {
+            funkoServiceImplInstance = new FunkoServiceImpl(funkoRepository, backupService);
+        }
+        return funkoServiceImplInstance;
+    }
+
 
     /**
      * Devuelve todos los elementos del repositorio
@@ -84,18 +101,10 @@ public class FunkoServiceImpl implements FunkoService {
      */
     @Override
     public void backup(String path, String fileName) throws SQLException, IOException {
-        File dataDir = new File(path);
-        if (dataDir.exists()) {
-            String dest = path + File.separator + fileName;
-            Gson gson = new GsonBuilder()
-                    .registerTypeAdapter(LocalDate.class, new LocalDateAdapter())
-                    .setPrettyPrinting()
-                    .create();
-            String json = gson.toJson(findAll());
-            Files.writeString(new File(dest).toPath(), json);
-            logger.debug("Backup realizado con éxito");
-        } else {
-            logger.error("El directorio del backup es un directorio no válido. No se creará el backup.");
+        try {
+            backupService.backup(path, fileName, findAll());
+        } catch (DirectoryException e) {
+            logger.error("El directorio del backup es un directorio no válido: " + e.getMessage());
         }
     }
 
