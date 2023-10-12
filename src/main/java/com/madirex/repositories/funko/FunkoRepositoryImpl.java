@@ -53,6 +53,7 @@ public class FunkoRepositoryImpl implements FunkoRepository {
         while (res.next()) {
             list.add(Funko.builder()
                     .cod(UUID.fromString(res.getString("cod")))
+                    .myId(Optional.of(res.getLong("myId")))
                     .name(res.getString("nombre"))
                     .model(Model.valueOf(res.getString("modelo")))
                     .price(res.getDouble("precio"))
@@ -78,6 +79,7 @@ public class FunkoRepositoryImpl implements FunkoRepository {
         if (res.next()) {
             optReturn = Optional.of(Funko.builder()
                     .cod(UUID.fromString(res.getString("cod")))
+                    .myId(Optional.of(res.getLong("myId")))
                     .name(res.getString("nombre"))
                     .model(Model.valueOf(res.getString("modelo")))
                     .price(res.getDouble("precio"))
@@ -96,10 +98,11 @@ public class FunkoRepositoryImpl implements FunkoRepository {
      */
     @Override
     public Optional<Funko> save(Funko entity) throws SQLException {
-        var sql = "INSERT INTO funko (cod, nombre, modelo, precio, fecha_lanzamiento, created_at, updated_at) " +
+        var sql = "INSERT INTO funko (cod, myId, nombre, modelo, precio, fecha_lanzamiento, created_at, updated_at) " +
                 "VALUES (?, ?, ?, ?, ?, ?, ?)";
         database.beginTransaction();
         database.insertAndGetKey(sql, entity.getCod().toString(),
+                entity.getMyId(),
                 entity.getName(),
                 entity.getModel().toString(),
                 entity.getPrice(),
@@ -134,10 +137,11 @@ public class FunkoRepositoryImpl implements FunkoRepository {
      */
     @Override
     public Optional<Funko> update(String id, Funko entity) throws SQLException {
-        var sql = "UPDATE funko SET nombre = ?, modelo = ?, precio = ?, fecha_lanzamiento = ?, " +
+        var sql = "UPDATE funko SET myId = ?, nombre = ?, modelo = ?, precio = ?, fecha_lanzamiento = ?, " +
                 "updated_at = ? WHERE cod = ?";
         database.beginTransaction();
         database.update(sql,
+                entity.getMyId(),
                 entity.getName(),
                 entity.getModel().toString(),
                 entity.getPrice(),

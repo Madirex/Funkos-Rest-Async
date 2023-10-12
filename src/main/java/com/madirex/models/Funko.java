@@ -5,6 +5,7 @@ import lombok.Builder;
 import lombok.Data;
 
 import java.time.LocalDate;
+import java.util.Optional;
 import java.util.UUID;
 
 /**
@@ -15,6 +16,7 @@ import java.util.UUID;
 public class Funko {
     @Builder.Default
     private UUID cod = UUID.randomUUID();
+    private Optional<Long> myId;
     private String name;
     private Model model;
     private double price;
@@ -27,6 +29,7 @@ public class Funko {
     public String toString() {
         return "Funko:" +
                 "\n\tCod=" + cod +
+                "\n\tMyId=" + myId +
                 "\n\tNombre='" + name + '\'' +
                 "\n\tModelo=" + model +
                 "\n\tPrecio=" + Utils.getInstance().doubleToESLocal(price) +
