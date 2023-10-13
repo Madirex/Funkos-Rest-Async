@@ -1,6 +1,7 @@
 package com.madirex.services.crud.funko;
 
 import com.madirex.exceptions.DirectoryException;
+import com.madirex.exceptions.FunkoNotFoundException;
 import com.madirex.exceptions.FunkoNotRemovedException;
 import com.madirex.exceptions.FunkoNotValidException;
 import com.madirex.models.Funko;
@@ -81,12 +82,15 @@ public class FunkoServiceImpl implements FunkoService<List<Funko>> {
     public CompletableFuture<List<Funko>> findByName(String name) {
         logger.debug("Obteniendo todos los Funkos ordenados por nombre");
         return funkoRepository.findByName(name)
-                .thenApplyAsync(list -> {
+                .thenComposeAsync(list -> {
                     if (list.isEmpty()) {
                         String str = "No se ha encontrado el Funko con nombre " + name;
-                        logger.error(str);
+                        CompletableFuture<List<Funko>> failedFuture = new CompletableFuture<>();
+                        failedFuture.completeExceptionally(new FunkoNotFoundException(str));
+                        return failedFuture;
+                    } else {
+                        return CompletableFuture.completedFuture(list);
                     }
-                    return list;
                 });
     }
 
@@ -138,24 +142,13 @@ public class FunkoServiceImpl implements FunkoService<List<Funko>> {
     }
 
     /**
-     * Devuelve la fecha de actualización de un elemento del repositorio
-     *
-     * @param id Id del elemento a buscar
-     * @return LocalDateTime de la fecha de actualización
-     */
-    public CompletableFuture<LocalDateTime> findUpdateAtByFunkoId(String id) {
-        logger.debug("Obteniendo última fecha de actualización del Funko por ID");
-        return funkoRepository.findUpdateAtByFunkoId(id).thenApplyAsync(r -> r);
-    }
-
-    /**
      * Guarda un elemento en el repositorio
      *
      * @param funko Elemento a guardar
      * @return Optional del elemento guardado
      */
     @Override
-    public CompletableFuture<Optional<Funko>> save(Funko funko) throws SQLException {
+    public CompletableFuture<Optional<Funko>> save(Funko funko) {
         logger.debug("Guardando Funko");
         cache.put(funko.getCod().toString(), funko);
         return funkoRepository.save(funko);
@@ -195,7 +188,7 @@ public class FunkoServiceImpl implements FunkoService<List<Funko>> {
     /**
      * Cierra el caché
      */
-    public void shutdown(){
+    public void shutdown() {
         cache.shutdown();
     }
 }
