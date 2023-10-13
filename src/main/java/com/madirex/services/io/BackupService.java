@@ -4,18 +4,16 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.reflect.TypeToken;
 import com.madirex.exceptions.DirectoryException;
-import com.madirex.exceptions.ExportDataException;
 import com.madirex.exceptions.ImportDataException;
 import com.madirex.models.Funko;
 import com.madirex.utils.LocalDateAdapter;
 import com.madirex.utils.LocalDateTimeAdapter;
+import com.madirex.utils.Utils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.File;
-import java.io.IOException;
 import java.lang.reflect.Type;
-import java.nio.file.Files;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -66,11 +64,7 @@ public class BackupService<T> {
                         .setPrettyPrinting()
                         .create();
                 String json = gson.toJson(data);
-                try {
-                    Files.writeString(new File(dest).toPath(), json);
-                } catch (IOException e) {
-                    throw new CompletionException(new ExportDataException(e.getMessage()));
-                }
+                Utils.getInstance().writeString(dest, json);
                 logger.debug("Backup realizado con éxito");
             } else {
                 throw new CompletionException(new DirectoryException("No se creará el backup."));
@@ -93,18 +87,14 @@ public class BackupService<T> {
                 throw new CompletionException(new DirectoryException("No se creará el backup."));
             }
             File dataFile = new File(path + File.separator + fileName);
-            try {
-                String json = new String(Files.readAllBytes(dataFile.toPath()));
-                Type listType = new TypeToken<List<Funko>>() {
-                }.getType();
-                Gson gson = new GsonBuilder()
-                        .registerTypeAdapter(LocalDate.class, new LocalDateAdapter())
-                        .registerTypeAdapter(LocalDateTime.class, new LocalDateTimeAdapter())
-                        .create();
-                return (List<Funko>) gson.fromJson(json, listType);
-            } catch (IOException | RuntimeException e) {
-                throw new CompletionException(new ImportDataException("Error al importar los datos: " + e.getMessage()));
-            }
+            String json = new String(Utils.getInstance().getFileBytes(dataFile));
+            Type listType = new TypeToken<List<Funko>>() {
+            }.getType();
+            Gson gson = new GsonBuilder()
+                    .registerTypeAdapter(LocalDate.class, new LocalDateAdapter())
+                    .registerTypeAdapter(LocalDateTime.class, new LocalDateTimeAdapter())
+                    .create();
+            return (List<Funko>) gson.fromJson(json, listType);
         }).exceptionally(ex -> {
             throw new CompletionException(new ImportDataException(ex.getMessage()));
         });

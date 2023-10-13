@@ -1,5 +1,9 @@
 package com.madirex.utils;
 
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+
 /**
  * Clase Utils que contiene métodos útiles para la aplicación
  */
@@ -33,5 +37,33 @@ public class Utils {
      */
     public String doubleToESLocal(double dbl) {
         return String.format("%,.2f", dbl).replace(".", ",");
+    }
+
+    /**
+     * Devuelve los bytes de un archivo
+     *
+     * @param dataFile Archivo del que se quieren obtener los bytes
+     * @return Bytes del archivo
+     */
+    public byte[] getFileBytes(File dataFile) {
+        try {
+            return Files.readAllBytes(dataFile.toPath());
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    /**
+     * Escribe un String en un archivo
+     *
+     * @param dest Ruta del archivo
+     * @param json String a escribir
+     */
+    public void writeString(String dest, String json)  {
+        try {
+            Files.writeString(new File(dest).toPath(), json);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
     }
 }
