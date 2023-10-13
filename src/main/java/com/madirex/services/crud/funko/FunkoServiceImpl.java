@@ -5,15 +5,15 @@ import com.madirex.exceptions.FunkoNotRemovedException;
 import com.madirex.exceptions.FunkoNotValidException;
 import com.madirex.models.Funko;
 import com.madirex.repositories.funko.FunkoRepositoryImpl;
+import com.madirex.services.cache.FunkoCache;
 import com.madirex.services.io.BackupService;
 import lombok.Getter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.sql.SQLException;
-import java.util.LinkedHashMap;
+import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
@@ -21,11 +21,10 @@ import java.util.concurrent.CompletableFuture;
  * Implementación de la interfaz FunkoService
  */
 public class FunkoServiceImpl implements FunkoService<List<Funko>> {
-    private static final int CACHE_SIZE = 25;
     private static FunkoServiceImpl funkoServiceImplInstance;
 
     @Getter
-    private final Map<String, Funko> cache;
+    private final FunkoCache cache;
     private final Logger logger = LoggerFactory.getLogger(FunkoServiceImpl.class);
     private final FunkoRepositoryImpl funkoRepository;
     private final BackupService<List<Funko>> backupService;
@@ -36,15 +35,10 @@ public class FunkoServiceImpl implements FunkoService<List<Funko>> {
      * @param funkoRepository Instancia de la clase FunkoRepository
      * @param backupService   Instancia de la clase BackupService
      */
-    private FunkoServiceImpl(FunkoRepositoryImpl funkoRepository, BackupService<List<Funko>> backupService) {
+    private FunkoServiceImpl(FunkoRepositoryImpl funkoRepository, FunkoCache cache, BackupService<List<Funko>> backupService) {
         this.funkoRepository = funkoRepository;
+        this.cache = cache;
         this.backupService = backupService;
-        this.cache = new LinkedHashMap<>(CACHE_SIZE, 0.75f, true) {
-            @Override
-            protected boolean removeEldestEntry(Map.Entry<String, Funko> eldest) {
-                return size() > CACHE_SIZE;
-            }
-        };
     }
 
     /**
@@ -55,9 +49,10 @@ public class FunkoServiceImpl implements FunkoService<List<Funko>> {
      * @return Instancia de la clase
      */
     public static synchronized FunkoServiceImpl getInstance(FunkoRepositoryImpl funkoRepository,
+                                                            FunkoCache cache,
                                                             BackupService<List<Funko>> backupService) {
         if (funkoServiceImplInstance == null) {
-            funkoServiceImplInstance = new FunkoServiceImpl(funkoRepository, backupService);
+            funkoServiceImplInstance = new FunkoServiceImpl(funkoRepository, cache, backupService);
         }
         return funkoServiceImplInstance;
     }
@@ -141,6 +136,17 @@ public class FunkoServiceImpl implements FunkoService<List<Funko>> {
     }
 
     /**
+     * Devuelve la fecha de actualización de un elemento del repositorio
+     *
+     * @param id Id del elemento a buscar
+     * @return LocalDateTime de la fecha de actualización
+     */
+    public CompletableFuture<LocalDateTime> findUpdateAtByFunkoId(String id) {
+        logger.debug("Obteniendo última fecha de actualización del Funko por ID");
+        return funkoRepository.findUpdateAtByFunkoId(id).thenApplyAsync(r -> r);
+    }
+
+    /**
      * Guarda un elemento en el repositorio
      *
      * @param funko Elemento a guardar
@@ -176,6 +182,11 @@ public class FunkoServiceImpl implements FunkoService<List<Funko>> {
     @Override
     public CompletableFuture<Boolean> delete(String id) throws SQLException, FunkoNotRemovedException {
         logger.debug("Eliminando Funko");
-        return funkoRepository.delete(id);
+        return funkoRepository.delete(id).thenApplyAsync(a -> {
+            if (Boolean.TRUE.equals(a)) {
+                cache.remove(id);
+            }
+            return a;
+        });
     }
 }

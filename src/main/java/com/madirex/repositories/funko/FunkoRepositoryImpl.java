@@ -113,13 +113,38 @@ public class FunkoRepositoryImpl implements FunkoRepository {
     }
 
     /**
+     * Busca un elemento en el repositorio por su ID y retorna el Date de cuando fue actualizado por última vez
+     *
+     * @param id Id del elemento a buscar
+     * @return Date de la última actualización
+     */
+    public CompletableFuture<LocalDateTime> findUpdateAtByFunkoId(String id) {
+        return CompletableFuture.supplyAsync(() -> {
+            LocalDateTime date = LocalDateTime.now();
+            try {
+                database.beginTransaction();
+                var sql = "SELECT * FROM funko WHERE cod = ?";
+                var res = database.select(sql, id).orElseThrow();
+                if (res.next()) {
+                    date = res.getTimestamp("updated_at").toLocalDateTime();
+                }
+                database.commit();
+            } catch (SQLException e) {
+                String str = "Error en el findUpdateAtByFunkoId: " + e;
+                logger.error(str);
+            }
+            return date;
+        });
+    }
+
+    /**
      * Guarda un elemento en el repositorio
      *
      * @param entity Elemento a guardar
      * @return Optional del elemento guardado
      */
     @Override
-    public CompletableFuture<Optional<Funko>> save(Funko entity) throws SQLException {
+    public CompletableFuture<Optional<Funko>> save(Funko entity) {
         return CompletableFuture.supplyAsync(() -> {
             var sql = "INSERT INTO funko (cod, myId, nombre, modelo, precio, fecha_lanzamiento, created_at, updated_at) " +
                     "VALUES (?, ?, ?, ?, ?, ?, ?, ?)";

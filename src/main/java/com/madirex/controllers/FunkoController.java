@@ -12,6 +12,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.sql.SQLException;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
@@ -20,6 +21,7 @@ import java.util.concurrent.CompletableFuture;
  * Controlador de Funko
  */
 public class FunkoController implements BaseController<Funko> {
+    private static FunkoController funkoControllerInstance;
     private final Logger logger = LoggerFactory.getLogger(FunkoController.class);
 
     private final FunkoServiceImpl funkoService;
@@ -29,9 +31,22 @@ public class FunkoController implements BaseController<Funko> {
      *
      * @param funkoService servicio de Funko
      */
-    public FunkoController(FunkoServiceImpl funkoService) {
+    private FunkoController(FunkoServiceImpl funkoService) {
         this.funkoService = funkoService;
     }
+
+    /**
+     * Constructor de la clase
+     *
+     * @param funkoService servicio de Funko
+     */
+    public static synchronized FunkoController getInstance(FunkoServiceImpl funkoService) {
+        if (funkoControllerInstance == null) {
+            funkoControllerInstance = new FunkoController(funkoService);
+        }
+        return funkoControllerInstance;
+    }
+
 
     /**
      * Busca todos los Funkos
@@ -60,6 +75,18 @@ public class FunkoController implements BaseController<Funko> {
     }
 
     /**
+     * Retorna el LocalDateTime de la fecha de la última actualización del Funko por su ID
+     *
+     * @param id id del Funko
+     * @return LocalDateTime de la última actualización del Funko
+     */
+    public CompletableFuture<LocalDateTime> findUpdateAtByFunkoId(String id) {
+        String msg = "findUpdateAtByFunkoId " + id;
+        logger.debug(msg);
+        return funkoService.findUpdateAtByFunkoId(id);
+    }
+
+    /**
      * Busca Funkos por nombre
      *
      * @param name nombre del Funko
@@ -67,7 +94,7 @@ public class FunkoController implements BaseController<Funko> {
      * @throws SQLException           si hay un error en la base de datos
      * @throws FunkoNotFoundException si no se encuentra el Funko
      */
-    public CompletableFuture<List<Funko>> findByName(String name) throws SQLException, FunkoNotFoundException {
+    public CompletableFuture<List<Funko>> findByName(String name) throws FunkoNotFoundException {
         String msg = "FindByName " + name;
         logger.debug(msg);
         return funkoService.findByName(name);

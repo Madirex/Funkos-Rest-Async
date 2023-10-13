@@ -8,6 +8,7 @@ import com.madirex.exceptions.ReadCSVFailException;
 import com.madirex.models.Funko;
 import com.madirex.models.Model;
 import com.madirex.repositories.funko.FunkoRepositoryImpl;
+import com.madirex.services.cache.FunkoCacheImpl;
 import com.madirex.services.crud.funko.FunkoServiceImpl;
 import com.madirex.services.crud.funko.IdGenerator;
 import com.madirex.services.database.DatabaseManager;
@@ -16,6 +17,7 @@ import com.madirex.services.io.CsvManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.xml.crypto.Data;
 import java.io.File;
 import java.io.IOException;
 import java.sql.SQLException;
@@ -42,8 +44,9 @@ public class FunkoProgram {
      * SINGLETON
      */
     private FunkoProgram() {
-        controller = new FunkoController(FunkoServiceImpl
+        controller = FunkoController.getInstance(FunkoServiceImpl
                 .getInstance(FunkoRepositoryImpl.getInstance(IdGenerator.getInstance(), DatabaseManager.getInstance()),
+                        new FunkoCacheImpl(10),
                         BackupService.getInstance()));
     }
 
@@ -72,6 +75,7 @@ public class FunkoProgram {
         CompletableFuture<Void> combinedFuture = CompletableFuture
                 .allOf(loadFuture, serviceExceptionFuture, serviceFuture, queriesFuture);
         combinedFuture.join();
+        logger.info("Programa de Funkos finalizado.");
     }
 
     /**
