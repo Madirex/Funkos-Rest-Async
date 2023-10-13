@@ -8,7 +8,6 @@ import com.madirex.models.Funko;
 import com.madirex.repositories.funko.FunkoRepositoryImpl;
 import com.madirex.services.cache.FunkoCache;
 import com.madirex.services.io.BackupService;
-import lombok.Getter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -23,7 +22,6 @@ import java.util.concurrent.CompletableFuture;
 public class FunkoServiceImpl implements FunkoService<List<Funko>> {
     private static FunkoServiceImpl funkoServiceImplInstance;
 
-    @Getter
     private final FunkoCache cache;
     private final Logger logger = LoggerFactory.getLogger(FunkoServiceImpl.class);
     private final FunkoRepositoryImpl funkoRepository;

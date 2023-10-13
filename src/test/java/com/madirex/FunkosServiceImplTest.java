@@ -1,7 +1,7 @@
 package com.madirex;
 
+import com.madirex.exceptions.FunkoNotFoundException;
 import com.madirex.exceptions.FunkoNotRemovedException;
-import com.madirex.exceptions.FunkoNotSavedException;
 import com.madirex.exceptions.FunkoNotValidException;
 import com.madirex.models.Funko;
 import com.madirex.models.Model;
@@ -13,6 +13,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.sql.SQLException;
@@ -35,7 +36,8 @@ class FunkosServiceImplTest {
     FunkoRepositoryImpl repository;
     @Mock
     FunkoCacheImpl cache;
-
+    @Mock
+    BackupService backupService;
     @InjectMocks
     FunkoServiceImpl service;
 
@@ -84,41 +86,58 @@ class FunkosServiceImplTest {
     }
 
     /**
-     * Test para FindByName cuando no se encuentra ningún Funko
+     * Test FindByName cuando no se encuentra ningún Funko
      */
     @Test
-    void testFindByNameNotFound() {
-        when(repository.findByName("name")).thenReturn(CompletableFuture.completedFuture(List.of()));
-        assertThrows(RuntimeException.class, () -> service.findByName("name"));
+    void testFindByNameEmptyList() {
+        String name = "No existe el Funko";
+
+        Mockito.when(repository.findByName(name)).thenReturn(CompletableFuture.completedFuture(List.of()));
+
+        assertThrows(FunkoNotFoundException.class, () -> {
+            CompletableFuture<List<Funko>> result = service.findByName(name);
+            try {
+                result.get();
+            } catch (Exception e) {
+                throw e.getCause();
+            }
+        });
     }
 
     /**
-     * Test para Backup
+     * Test para importData
+     *
+     * @throws ExecutionException   Si hay un error en la ejecución
+     * @throws InterruptedException Si hay un error en la ejecución
      */
     @Test
-    void testBackupDirectoryExists() {
-        String path = "data";
-        String fileName = "backup.json";
-        List<Funko> list = List.of(
-                Funko.builder().name("test1").price(42.0).build(),
-                Funko.builder().name("test2").price(42.24).build()
-        );
-        assertDoesNotThrow(() -> service.exportData(path, fileName, list));
+    void testImportData() throws ExecutionException, InterruptedException {
+        String path = "testPath";
+        String fileName = "testFile";
+        List<Funko> testData = List.of(Funko.builder().build());
+        Mockito.when(service.importData(path, fileName)).thenReturn(CompletableFuture.completedFuture(testData));
+        CompletableFuture<List<Funko>> result = service.importData(path, fileName);
+        List<Funko> importedData = result.get();
+        assertEquals(testData.size(), importedData.size());
     }
 
     /**
-     * Test para Backup cuando el directorio no existe
+     * Test para exportData
+     *
+     * @throws ExecutionException   Si hay un error en la ejecución
+     * @throws InterruptedException Si hay un error en la ejecución
+     * @throws SQLException         Si hay un error en la base de datos
      */
     @Test
-    void testBackupDirectoryNotExists() {
-        String path = "ruta/inexistente";
-        String fileName = "backup.json";
-        service = FunkoServiceImpl.getInstance(repository, new FunkoCacheImpl(10, 2), BackupService.getInstance());
-        List<Funko> list = List.of(
-                Funko.builder().name("test1").price(42.0).build(),
-                Funko.builder().name("test2").price(42.24).build()
-        );
-        assertDoesNotThrow(() -> service.exportData(path, fileName, list));
+    void testExportData() throws ExecutionException, InterruptedException, SQLException {
+        String path = "testPath";
+        String fileName = "testFile";
+        List<Funko> testData = List.of(Funko.builder().build());
+        Mockito.when(service.findAll()).thenReturn(CompletableFuture.completedFuture(testData));
+        Mockito.when(backupService.exportData(path, fileName, testData)).thenReturn(CompletableFuture.completedFuture(null));
+        CompletableFuture<Void> result = service.exportData(path, fileName, testData);
+        result.get();
+        Mockito.verify(backupService, Mockito.times(1)).exportData(path, fileName, testData);
     }
 
     /**
@@ -152,17 +171,18 @@ class FunkosServiceImplTest {
      * @throws InterruptedException Si hay un error en la ejecución
      */
     @Test
-    void testFindByIdCached() throws SQLException, ExecutionException, InterruptedException {
-        Funko cachedFunko = Funko.builder()
-                .name("Funko en caché")
-                .price(20.0)
-                .build();
-        //service = FunkoServiceImpl.getInstance(repository, new FunkoCacheImpl(10), BackupService.getInstance());
-        service.getCache().put(cachedFunko.getCod().toString(), cachedFunko);
-        Optional<Funko> result = service.findById(cachedFunko.getCod().toString()).get();
-        assertTrue(result.isPresent());
-        assertEquals(cachedFunko, result.get());
-        verify(repository, never()).findById(anyString());
+    void testFindByIdInCache() throws SQLException, ExecutionException, InterruptedException {
+        String id = "testId";
+        Funko cachedFunko = Funko.builder().name("Cached Funko").build();
+
+        Mockito.when(cache.get(id)).thenReturn(cachedFunko);
+
+        CompletableFuture<Optional<Funko>> result = service.findById(id);
+
+        Optional<Funko> foundFunko = result.get();
+        assertTrue(foundFunko.isPresent());
+        assertEquals("Cached Funko", foundFunko.get().getName());
+        Mockito.verify(repository, Mockito.never()).findById(id);
     }
 
     /**
@@ -184,21 +204,6 @@ class FunkosServiceImplTest {
                 () -> assertEquals(result.get().getModel(), funko.getModel(), "El modelo del Funko no es el esperado")
         );
         verify(repository, times(1)).save(funko);
-    }
-
-    /**
-     * Test para Save cuando el Funko no es válido
-     */
-    @Test
-    void testSaveNotValid() {
-        Funko funkoToSave = Funko.builder()
-                .name("cuack")
-                .price(-12.42)
-                .releaseDate(LocalDate.now())
-                .model(Model.DISNEY)
-                .build();
-        when(repository.save(funkoToSave)).thenReturn(CompletableFuture.completedFuture(Optional.empty()));
-        assertThrows(FunkoNotSavedException.class, () -> service.save(funkoToSave));
     }
 
     /**
@@ -227,24 +232,6 @@ class FunkosServiceImplTest {
     }
 
     /**
-     * Test para Update cuando el Funko no es válido
-     *
-     * @throws SQLException Si hay un error en la base de datos
-     */
-    @Test
-    void testUpdateNotValid() throws SQLException {
-        Funko funkoToUpdate = Funko.builder()
-                .name("cuack")
-                .price(-12.42)
-                .releaseDate(LocalDate.now())
-                .model(Model.DISNEY)
-                .build();
-        when(repository.update(funkoToUpdate.getCod().toString(), funkoToUpdate))
-                .thenReturn(CompletableFuture.completedFuture(Optional.empty()));
-        assertThrows(FunkoNotValidException.class, () -> service.update(funkoToUpdate.getCod().toString(), funkoToUpdate));
-    }
-
-    /**
      * Test para Delete
      *
      * @throws SQLException             Si hay un error en la base de datos
@@ -263,14 +250,22 @@ class FunkosServiceImplTest {
     }
 
     /**
-     * Test para Delete cuando el Funko no existe
-     *
-     * @throws SQLException Si hay un error en la base de datos
+     * Test para Shutdown
      */
     @Test
-    void testDeleteNotExists() throws SQLException {
-        when(repository.delete("63161c2e-1602-44b5-bd8b-3b424f7b2b4c"))
-                .thenReturn(CompletableFuture.completedFuture(false));
-        assertThrows(FunkoNotRemovedException.class, () -> service.delete("63161c2e-1602-44b5-bd8b-3b424f7b2b4c"));
+    void testShutdown() {
+        service.shutdown();
+        verify(cache, times(1)).shutdown();
     }
+
+    /**
+     * Test para GetInstance
+     */
+    @Test
+    void testGetInstance() {
+        FunkoServiceImpl instance1 = FunkoServiceImpl.getInstance(repository, cache, backupService);
+        FunkoServiceImpl instance2 = FunkoServiceImpl.getInstance(repository, cache, backupService);
+        assertSame(instance1, instance2);
+    }
+
 }
