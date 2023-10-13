@@ -7,6 +7,7 @@ import com.madirex.services.crud.funko.FunkoServiceImpl;
 import com.madirex.services.crud.funko.IdGenerator;
 import com.madirex.services.database.DatabaseManager;
 import com.madirex.services.io.BackupService;
+import lombok.Getter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -23,7 +24,9 @@ import java.util.concurrent.TimeUnit;
 public class FunkoCacheImpl implements FunkoCache {
     private final Logger logger = LoggerFactory.getLogger(FunkoCacheImpl.class);
     private final int maxSize;
+    private final long secondsToClear;
     private final Map<String, Funko> cache;
+    @Getter
     private final ScheduledExecutorService cleaner;
 
 
@@ -31,9 +34,11 @@ public class FunkoCacheImpl implements FunkoCache {
      * Constructor de la clase
      *
      * @param maxSize tamaño máximo de la caché
+     * @param secondsToClear minutos para limpiar la caché
      */
-    public FunkoCacheImpl(int maxSize) {
+    public FunkoCacheImpl(int maxSize, long secondsToClear) {
         this.maxSize = maxSize;
+        this.secondsToClear = secondsToClear;
         this.cache = new LinkedHashMap<String, Funko>(maxSize, 0.75f, true) {
             @Override
             protected boolean removeEldestEntry(Map.Entry<String, Funko> eldest) {
@@ -83,24 +88,16 @@ public class FunkoCacheImpl implements FunkoCache {
     }
 
     /**
-     * Elimina los Funkos de la caché que hayan caducado si llevan más de 2 minutos sin ser modificados
+     * Elimina los Funkos de la caché que hayan caducado si llevan más de secondsToClear segundos sin ser modificados
      */
     @Override
     public void clear() {
         cache.entrySet().removeIf(entry -> {
-            FunkoController controller = FunkoController.getInstance(FunkoServiceImpl
-                    .getInstance(FunkoRepositoryImpl.getInstance(IdGenerator.getInstance(), DatabaseManager.getInstance()),
-                            new FunkoCacheImpl(10),
-                            BackupService.getInstance()));
-            controller.findUpdateAtByFunkoId(entry.getKey()).thenApplyAsync(a -> {
-                boolean shouldRemove = a.plusMinutes(2).isBefore(LocalDateTime.now());
-                if (shouldRemove) {
-                    String str = "Autoeliminando por caducidad Funko de caché con ID: " + entry.getKey();
-                    logger.debug(str);
-                }
-                return shouldRemove;
-            });
-            return false;
+            boolean shouldRemove = entry.getValue().getUpdateAt().plusSeconds(secondsToClear).isBefore(LocalDateTime.now());
+            if (shouldRemove) {
+                logger.debug("Eliminado por caducidad Funko de caché con ID: " + entry.getKey());
+            }
+            return shouldRemove;
         });
     }
 

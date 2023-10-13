@@ -75,18 +75,6 @@ public class FunkoController implements BaseController<Funko> {
     }
 
     /**
-     * Retorna el LocalDateTime de la fecha de la última actualización del Funko por su ID
-     *
-     * @param id id del Funko
-     * @return LocalDateTime de la última actualización del Funko
-     */
-    public CompletableFuture<LocalDateTime> findUpdateAtByFunkoId(String id) {
-        String msg = "findUpdateAtByFunkoId " + id;
-        logger.debug(msg);
-        return funkoService.findUpdateAtByFunkoId(id);
-    }
-
-    /**
      * Busca Funkos por nombre
      *
      * @param name nombre del Funko

@@ -59,16 +59,20 @@ public class FunkoRepositoryImpl implements FunkoRepository {
             var sql = "SELECT * FROM funko";
             try {
                 database.beginTransaction();
-                var res = database.select(sql).orElseThrow();
-                while (res.next()) {
-                    list.add(Funko.builder()
-                            .cod(UUID.fromString(res.getString("cod")))
-                            .myId(res.getLong("myId"))
-                            .name(res.getString("nombre"))
-                            .model(Model.valueOf(res.getString("modelo")))
-                            .price(res.getDouble("precio"))
-                            .releaseDate(res.getDate("fecha_lanzamiento").toLocalDate())
-                            .build());
+                var res = database.select(sql);
+                if (res.isPresent()) {
+                    var resGet = res.get();
+                    while (resGet.next()) {
+                        list.add(Funko.builder()
+                                .cod(UUID.fromString(resGet.getString("cod")))
+                                .myId(resGet.getLong("myId"))
+                                .name(resGet.getString("nombre"))
+                                .model(Model.valueOf(resGet.getString("modelo")))
+                                .price(resGet.getDouble("precio"))
+                                .releaseDate(resGet.getDate("fecha_lanzamiento").toLocalDate())
+                                .updateAt(resGet.getTimestamp("updated_at").toLocalDateTime())
+                                .build());
+                    }
                 }
                 database.commit();
             } catch (SQLException e) {
@@ -101,6 +105,7 @@ public class FunkoRepositoryImpl implements FunkoRepository {
                             .model(Model.valueOf(res.getString("modelo")))
                             .price(res.getDouble("precio"))
                             .releaseDate(res.getDate("fecha_lanzamiento").toLocalDate())
+                            .updateAt(res.getTimestamp("updated_at").toLocalDateTime())
                             .build());
                 }
                 database.commit();
@@ -113,31 +118,6 @@ public class FunkoRepositoryImpl implements FunkoRepository {
     }
 
     /**
-     * Busca un elemento en el repositorio por su ID y retorna el Date de cuando fue actualizado por última vez
-     *
-     * @param id Id del elemento a buscar
-     * @return Date de la última actualización
-     */
-    public CompletableFuture<LocalDateTime> findUpdateAtByFunkoId(String id) {
-        return CompletableFuture.supplyAsync(() -> {
-            LocalDateTime date = LocalDateTime.now();
-            try {
-                database.beginTransaction();
-                var sql = "SELECT * FROM funko WHERE cod = ?";
-                var res = database.select(sql, id).orElseThrow();
-                if (res.next()) {
-                    date = res.getTimestamp("updated_at").toLocalDateTime();
-                }
-                database.commit();
-            } catch (SQLException e) {
-                String str = "Error en el findUpdateAtByFunkoId: " + e;
-                logger.error(str);
-            }
-            return date;
-        });
-    }
-
-    /**
      * Guarda un elemento en el repositorio
      *
      * @param entity Elemento a guardar
@@ -146,6 +126,7 @@ public class FunkoRepositoryImpl implements FunkoRepository {
     @Override
     public CompletableFuture<Optional<Funko>> save(Funko entity) {
         return CompletableFuture.supplyAsync(() -> {
+            entity.setUpdateAt(LocalDateTime.now());
             var sql = "INSERT INTO funko (cod, myId, nombre, modelo, precio, fecha_lanzamiento, created_at, updated_at) " +
                     "VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
             try {
@@ -157,7 +138,7 @@ public class FunkoRepositoryImpl implements FunkoRepository {
                         entity.getPrice(),
                         entity.getReleaseDate(),
                         LocalDateTime.now(),
-                        LocalDateTime.now());
+                        entity.getUpdateAt());
                 database.commit();
             } catch (SQLException e) {
                 String str = "Error en el save: " + e;
@@ -200,6 +181,7 @@ public class FunkoRepositoryImpl implements FunkoRepository {
     @Override
     public CompletableFuture<Optional<Funko>> update(String id, Funko entity) throws SQLException {
         return CompletableFuture.supplyAsync(() -> {
+            entity.setUpdateAt(LocalDateTime.now());
             var sql = "UPDATE funko SET myId = ?, nombre = ?, modelo = ?, precio = ?, fecha_lanzamiento = ?, " +
                     "updated_at = ? WHERE cod = ?";
             try {
@@ -210,7 +192,7 @@ public class FunkoRepositoryImpl implements FunkoRepository {
                         entity.getModel().toString(),
                         entity.getPrice(),
                         entity.getReleaseDate(),
-                        LocalDateTime.now(),
+                        entity.getUpdateAt(),
                         id);
                 database.commit();
             } catch (SQLException e) {
@@ -220,7 +202,6 @@ public class FunkoRepositoryImpl implements FunkoRepository {
             return Optional.of(entity);
         });
     }
-
 
     /**
      * Busca un elemento en el repositorio por su nombre

@@ -5,6 +5,7 @@ import lombok.Builder;
 import lombok.Data;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.UUID;
 
 /**
@@ -21,6 +22,8 @@ public class Funko {
     private Model model;
     private double price;
     private LocalDate releaseDate;
+    @Builder.Default
+    private LocalDateTime updateAt = LocalDateTime.now();
 
     /**
      * Constructor

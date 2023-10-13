@@ -45,7 +45,7 @@ public class FunkoProgram {
     private FunkoProgram() {
         controller = FunkoController.getInstance(FunkoServiceImpl
                 .getInstance(FunkoRepositoryImpl.getInstance(IdGenerator.getInstance(), DatabaseManager.getInstance()),
-                        new FunkoCacheImpl(10),
+                        new FunkoCacheImpl(10, 2 * 60),
                         BackupService.getInstance()));
     }
 
