@@ -356,9 +356,19 @@ public class FunkoProgram {
                                         logger.info(str);
                                     });
                                     return null;
-                                });
+                                }).exceptionally(ex -> {
+                                    String strError = "No se ha eliminado el Funko con id " + a.get(0).getCod().toString() + " -> " + ex.getMessage();
+                                    logger.error(strError);
+                                    return null;
+                                })
+                                .thenApply(ignored -> null);
                         return null;
-                    });
+                    }).exceptionally(ex -> {
+                        String strError = "No se ha encontrado el Funko con nombre " + name + " -> " + ex.getMessage();
+                        logger.error(strError);
+                        return null;
+                    })
+                    .thenApply(ignored -> null);
         } catch (FunkoNotFoundException e) {
             String strError = "El Funko no se ha encontrado: " + e;
             logger.error(strError);
@@ -406,7 +416,12 @@ public class FunkoProgram {
                             logger.error(str);
                         }
                         return null;
-                    });
+                    }).exceptionally(ex -> {
+                        String strError = "No se ha actualizado el Funko con nombre " + name + " -> " + ex.getMessage();
+                        logger.error(strError);
+                        return null;
+                    })
+                    .thenApply(ignored -> null);
         } catch (FunkoNotFoundException e) {
             String strError = "El Funko no se ha encontrado: " + e;
             logger.error(strError);
@@ -462,7 +477,12 @@ public class FunkoProgram {
                         logger.info("\nSave:");
                         a.ifPresent(e -> logger.info(e.toString()));
                         return null;
-                    });
+                    }).exceptionally(ex -> {
+                        String strError = "No se ha guardado el Funko con id " + funko.getCod().toString() + " -> " + ex.getMessage();
+                        logger.error(strError);
+                        return null;
+                    })
+                    .thenApply(ignored -> null);
 
         } catch (FunkoNotSavedException | FunkoNotValidException e) {
             String strError = "No se ha podido guardar el Funko: " + e;
@@ -491,7 +511,13 @@ public class FunkoProgram {
                         logger.info("\nFind by Id:");
                         a.ifPresent(e -> logger.info(e.toString()));
                         return null;
-                    });
+                    })
+                    .exceptionally(ex -> {
+                        String strError = "No se ha encontrado el Funko con id " + id + " -> " + ex.getMessage();
+                        logger.error(strError);
+                        return null;
+                    })
+                    .thenApply(ignored -> null);
         } catch (FunkoNotFoundException e) {
             String strError = "No se ha encontrado el Funko con id " + id + " -> " + e;
             logger.error(strError);
@@ -519,7 +545,12 @@ public class FunkoProgram {
                         logger.info("\nFind by Name:");
                         a.forEach(e -> logger.info(e.toString()));
                         return null;
-                    });
+                    }).exceptionally(ex -> {
+                        String strError = "No se ha encontrado el Funko con nombre " + name + " -> " + ex.getMessage();
+                        logger.error(strError);
+                        return null;
+                    })
+                    .thenApply(ignored -> null);
         } catch (FunkoNotFoundException e) {
             String strError = "No se han encontrado Funkos: " + e;
             logger.error(strError);

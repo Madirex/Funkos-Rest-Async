@@ -13,7 +13,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.sql.SQLException;
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
@@ -84,7 +83,9 @@ public class FunkoServiceImpl implements FunkoService<List<Funko>> {
         return funkoRepository.findByName(name)
                 .thenComposeAsync(list -> {
                     if (list.isEmpty()) {
-                        return new CompletableFuture<>();
+                        CompletableFuture<List<Funko>> future = new CompletableFuture<>();
+                        future.completeExceptionally(new FunkoNotFoundException("No se encontraron Funkos con el nombre: " + name));
+                        return future;
                     } else {
                         return CompletableFuture.completedFuture(list);
                     }
