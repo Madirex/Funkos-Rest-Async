@@ -17,7 +17,6 @@ import com.madirex.services.io.CsvManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.xml.crypto.Data;
 import java.io.File;
 import java.io.IOException;
 import java.sql.SQLException;
@@ -75,6 +74,7 @@ public class FunkoProgram {
         CompletableFuture<Void> combinedFuture = CompletableFuture
                 .allOf(loadFuture, serviceExceptionFuture, serviceFuture, queriesFuture);
         combinedFuture.join();
+        controller.shutdown();
         logger.info("Programa de Funkos finalizado.");
     }
 

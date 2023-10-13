@@ -195,4 +195,11 @@ public class FunkoController implements BaseController<Funko> {
     public CompletableFuture<List<Funko>> importData(String url, String fileName) {
         return funkoService.importData(url, fileName);
     }
+
+    /**
+     * Cierra el caché
+     */
+    public void shutdown() {
+        funkoService.shutdown();
+    }
 }

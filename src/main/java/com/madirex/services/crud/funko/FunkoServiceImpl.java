@@ -33,6 +33,7 @@ public class FunkoServiceImpl implements FunkoService<List<Funko>> {
      * Constructor de la clase
      *
      * @param funkoRepository Instancia de la clase FunkoRepository
+     * @param cache           Instancia de la clase FunkoCache
      * @param backupService   Instancia de la clase BackupService
      */
     private FunkoServiceImpl(FunkoRepositoryImpl funkoRepository, FunkoCache cache, BackupService<List<Funko>> backupService) {
@@ -45,6 +46,7 @@ public class FunkoServiceImpl implements FunkoService<List<Funko>> {
      * Devuelve la instancia de la clase
      *
      * @param funkoRepository Instancia de la clase FunkoRepository
+     * @param cache           Instancia de la clase FunkoCache
      * @param backupService   Instancia de la clase BackupService
      * @return Instancia de la clase
      */
@@ -188,5 +190,12 @@ public class FunkoServiceImpl implements FunkoService<List<Funko>> {
             }
             return a;
         });
+    }
+
+    /**
+     * Cierra el caché
+     */
+    public void shutdown(){
+        cache.shutdown();
     }
 }
