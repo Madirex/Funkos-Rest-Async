@@ -53,7 +53,11 @@ public class FunkoCacheImplTest {
         assertTrue(cache.getCleaner().isShutdown());
     }
 
-    //TODO: DO
+    /**
+     * Test clear
+     *
+     * @throws InterruptedException si hay un error en el hilo
+     */
     @Test
     public void testClear() throws InterruptedException {
         Funko funko = Funko.builder().build();

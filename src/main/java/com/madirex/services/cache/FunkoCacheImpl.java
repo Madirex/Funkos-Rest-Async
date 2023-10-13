@@ -1,12 +1,6 @@
 package com.madirex.services.cache;
 
-import com.madirex.controllers.FunkoController;
 import com.madirex.models.Funko;
-import com.madirex.repositories.funko.FunkoRepositoryImpl;
-import com.madirex.services.crud.funko.FunkoServiceImpl;
-import com.madirex.services.crud.funko.IdGenerator;
-import com.madirex.services.database.DatabaseManager;
-import com.madirex.services.io.BackupService;
 import lombok.Getter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -33,7 +27,7 @@ public class FunkoCacheImpl implements FunkoCache {
     /**
      * Constructor de la clase
      *
-     * @param maxSize tamaño máximo de la caché
+     * @param maxSize        tamaño máximo de la caché
      * @param secondsToClear minutos para limpiar la caché
      */
     public FunkoCacheImpl(int maxSize, long secondsToClear) {

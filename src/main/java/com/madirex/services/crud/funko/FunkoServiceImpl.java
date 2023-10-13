@@ -84,10 +84,7 @@ public class FunkoServiceImpl implements FunkoService<List<Funko>> {
         return funkoRepository.findByName(name)
                 .thenComposeAsync(list -> {
                     if (list.isEmpty()) {
-                        String str = "No se ha encontrado el Funko con nombre " + name;
-                        CompletableFuture<List<Funko>> failedFuture = new CompletableFuture<>();
-                        failedFuture.completeExceptionally(new FunkoNotFoundException(str));
-                        return failedFuture;
+                        return new CompletableFuture<>();
                     } else {
                         return CompletableFuture.completedFuture(list);
                     }

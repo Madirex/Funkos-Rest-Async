@@ -8,6 +8,7 @@ import com.madirex.exceptions.ExportDataException;
 import com.madirex.exceptions.ImportDataException;
 import com.madirex.models.Funko;
 import com.madirex.utils.LocalDateAdapter;
+import com.madirex.utils.LocalDateTimeAdapter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -16,6 +17,7 @@ import java.io.IOException;
 import java.lang.reflect.Type;
 import java.nio.file.Files;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -60,6 +62,7 @@ public class BackupService<T> {
                 String dest = path + File.separator + fileName;
                 Gson gson = new GsonBuilder()
                         .registerTypeAdapter(LocalDate.class, new LocalDateAdapter())
+                        .registerTypeAdapter(LocalDateTime.class, new LocalDateTimeAdapter())
                         .setPrettyPrinting()
                         .create();
                 String json = gson.toJson(data);
@@ -96,10 +99,9 @@ public class BackupService<T> {
                 }.getType();
                 Gson gson = new GsonBuilder()
                         .registerTypeAdapter(LocalDate.class, new LocalDateAdapter())
+                        .registerTypeAdapter(LocalDateTime.class, new LocalDateTimeAdapter())
                         .create();
-
-                List<Funko> dataList = gson.fromJson(json, listType);
-                return dataList;
+                return (List<Funko>) gson.fromJson(json, listType);
             } catch (IOException | RuntimeException e) {
                 throw new CompletionException(new ImportDataException("Error al importar los datos: " + e.getMessage()));
             }
