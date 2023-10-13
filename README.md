@@ -1,5 +1,9 @@
 # Funkos Java Asíncronos
 
+<p align="center">
+  <img src="images/logo.png" alt="Funkos asíncronos">
+</p>
+
 ## 📝 Descripción
 API Rest de Funkos programada en Java con Gradle y base de datos en H2 (modificable desde el archivo properties). Se realizan tests con JUnit y Mockito, además de varias consultas en el Main de la aplicación para probar tanto los casos correctos como los incorrectos del programa.
 
