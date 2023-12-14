@@ -134,7 +134,7 @@ En algunos tests también se hace uso de when (Mockito) para definir el comporta
 
 
 ## ⚙ Herramientas
-- Java 11.
+- Java 17.
 - Gradle.
 - H2.
 - JUnit.
